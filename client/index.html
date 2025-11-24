@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DDN Games</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #000;
+            color: #fff;
+            font-family: sans-serif;
+        }
+
+        #app {
+            width: 100%;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        canvas {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <!-- Game Header (for room info, leave button, etc.) -->
+    <div id="game-header" class="hidden"></div>
+
+    <!-- Phaser Game Container -->
+    <div id="app"></div>
+
+    <script type="module" src="/src/main.js"></script>
+</body>
+</html>

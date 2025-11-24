@@ -1,0 +1,42 @@
+# macOS
+.DS_Store
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Dependency directories
+node_modules/
+client/node_modules/
+server/node_modules/
+
+# Build outputs
+dist/
+build/
+client/dist/
+server/dist/
+
+# Environment & secrets
+.env
+.env.local
+.env.*
+client/.env*
+server/.env*
+server/credentials/*.json
+
+# Runtime data
+*.pid
+*.seed
+
+# IDE
+.idea/
+.vscode/
+
+# Coverage / testing
+coverage/
+*.lcov
+
