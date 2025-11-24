@@ -78,7 +78,10 @@ const LobbyPage = () => {
                 avatar: user.avatar || ""
             });
             
-            joinRoom(room, { roomName: newRoomName });
+            joinRoom(room, {
+                roomName: newRoomName || room.metadata?.roomName,
+                gameId: room.metadata?.gameId || 'caro'
+            });
             navigate('/game');
         } catch (e) {
             console.error("Create error", e);
@@ -95,7 +98,10 @@ const LobbyPage = () => {
                 avatar: user.avatar || ""
             });
             
-            joinRoom(room, {});
+            joinRoom(room, {
+                roomName: room.metadata?.roomName,
+                gameId: room.metadata?.gameId
+            });
             navigate('/game');
         } catch (e) {
             console.error("Join error", e);

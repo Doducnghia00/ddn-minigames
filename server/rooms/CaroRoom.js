@@ -5,12 +5,16 @@ class CaroRoom extends Room {
     onCreate(options) {
         this.setState(new CaroState());
         this.maxClients = 2;
+        this.minPlayers = 2;
         this.state.gameState = "waiting";
+        this.state.currentTurn = null;
 
         // Metadata for Lobby
         this.setMetadata({
             roomName: options.roomName || "Caro Room",
-            isLocked: !!options.password
+            isLocked: !!options.password,
+            gameId: "caro",
+            gameName: "Caro Online"
         });
 
         if (options.password) {
@@ -23,6 +27,14 @@ class CaroRoom extends Room {
 
         this.onMessage("rematch", (client) => {
             this.handleRematch(client);
+        });
+
+        this.onMessage("toggle_ready", (client, message) => {
+            this.handleToggleReady(client, message?.ready);
+        });
+
+        this.onMessage("start_match", (client) => {
+            this.handleStartMatch(client);
         });
 
         this.onMessage("kick_player", (client, { targetId }) => {
@@ -48,6 +60,7 @@ class CaroRoom extends Room {
         player.id = client.sessionId;
         player.name = options.name || "Player";
         player.avatar = options.avatar || ""; // Google photo URL
+        player.isReady = false;
 
         // Assign symbol: 1 for first player (X), 2 for second (O)
         // First player is also the room owner
@@ -63,9 +76,11 @@ class CaroRoom extends Room {
 
         this.state.players.set(client.sessionId, player);
 
-        if (this.state.players.size === 2) {
-            this.state.gameState = "playing";
-            this.broadcast("start_game", { startPlayer: this.state.currentTurn });
+        this.resetReadiness();
+
+        if (this.state.players.size < this.minPlayers && this.state.gameState !== "playing") {
+            this.state.gameState = "waiting";
+            this.state.currentTurn = null;
         }
     }
 
@@ -81,7 +96,9 @@ class CaroRoom extends Room {
 
         if (this.checkWin(x, y, player.symbol)) {
             this.state.winner = client.sessionId;
-            this.state.gameState = "ended";
+            this.state.gameState = "finished";
+            this.state.currentTurn = null;
+            this.resetReadiness();
             this.broadcast("game_over", { winner: client.sessionId });
         } else {
             this.switchTurn();
@@ -135,6 +152,7 @@ class CaroRoom extends Room {
         console.log(client.sessionId, "left Caro room");
         this.state.players.delete(client.sessionId);
         this.state.rematchVotes.delete(client.sessionId);
+        this.resetReadiness();
 
         // Transfer ownership if owner left
         if (this.state.roomOwner === client.sessionId && this.state.players.size > 0) {
@@ -145,47 +163,38 @@ class CaroRoom extends Room {
         }
 
         if (this.state.gameState === "playing") {
-            this.state.gameState = "ended";
-            this.broadcast("game_over", { winner: "opponent_left" });
+            // Find the remaining player and set them as winner
+            const remainingPlayerId = Array.from(this.state.players.keys())[0];
+            if (remainingPlayerId) {
+                this.state.winner = remainingPlayerId;
+                this.state.gameState = "finished";
+                this.state.currentTurn = null;
+                this.resetReadiness();
+                this.broadcast("game_over", { winner: remainingPlayerId });
+            } else {
+                // No players left, just finish the game
+                this.state.gameState = "finished";
+                this.state.currentTurn = null;
+                this.broadcast("game_over", { winner: "draw" });
+            }
+        }
+
+        if (this.state.players.size < this.minPlayers && this.state.gameState !== "playing") {
+            this.state.gameState = "waiting";
+            this.state.currentTurn = null;
         }
     }
 
     handleRematch(client) {
-        if (this.state.gameState !== "ended") return;
+        if (this.state.gameState !== "finished") return;
 
         this.state.rematchVotes.set(client.sessionId, true);
         console.log("Rematch vote from", client.sessionId);
 
         // Check if all players voted for rematch
         if (this.state.rematchVotes.size === this.state.players.size) {
-            this.resetGame();
+            this.startGame();
         }
-    }
-
-    resetGame() {
-        console.log("Resetting game for rematch");
-
-        // Clear board
-        for (let i = 0; i < 225; i++) {
-            this.state.board[i] = 0;
-        }
-
-        // Clear rematch votes
-        this.state.rematchVotes.clear();
-
-        // Reset game state
-        this.state.winner = "";
-        this.state.gameState = "playing";
-
-        // First player (X) starts again
-        for (let [id, player] of this.state.players) {
-            if (player.symbol === 1) {
-                this.state.currentTurn = id;
-                break;
-            }
-        }
-
-        this.broadcast("game_reset", {});
     }
 
     handleKickPlayer(client, targetId) {
@@ -202,6 +211,14 @@ class CaroRoom extends Room {
         const targetClient = Array.from(this.clients).find(c => c.sessionId === targetId);
         if (targetClient) {
             console.log("Kicking player:", targetId);
+            try {
+                targetClient.send("kicked", {
+                    reason: "owner_kick",
+                    message: "You have been removed from the room by the host."
+                });
+            } catch (err) {
+                console.warn("Failed to send kick message", err);
+            }
             targetClient.leave(4000); // Custom close code for kick
         }
     }
@@ -221,6 +238,102 @@ class CaroRoom extends Room {
 
         console.log("Password changed by owner");
         this.broadcast("password_changed", { isLocked: !!newPassword });
+    }
+
+    handleToggleReady(client, ready) {
+        if (this.state.gameState === "playing") {
+            return;
+        }
+
+        const player = this.state.players.get(client.sessionId);
+        if (!player) return;
+
+        player.isReady = !!ready;
+    }
+
+    handleStartMatch(client) {
+        if (this.state.roomOwner !== client.sessionId) {
+            console.log("Non-owner tried to start match:", client.sessionId);
+            return;
+        }
+
+        if (this.state.gameState === "playing") return;
+        if (this.state.players.size < this.minPlayers) return;
+
+        if (!this.areAllPlayersReady()) {
+            console.log("Cannot start match, not everyone is ready");
+            return;
+        }
+
+        this.startGame();
+    }
+
+    areAllPlayersReady() {
+        if (this.state.players.size < this.minPlayers) return false;
+        for (let [, player] of this.state.players) {
+            if (!player.isReady) return false;
+        }
+        return true;
+    }
+
+    startGame() {
+        if (this.state.players.size < this.minPlayers) {
+            console.warn("Attempted to start match without enough players");
+            return;
+        }
+
+        console.log("Starting new Caro match");
+        this.clearBoard();
+        this.state.rematchVotes.clear();
+        this.state.winner = "";
+        this.state.gameState = "playing";
+
+        // Ensure there is always a player assigned to X (symbol 1)
+        let startingPlayerId = null;
+        for (let [id, player] of this.state.players) {
+            if (player.symbol === 1) {
+                startingPlayerId = id;
+                break;
+            }
+        }
+
+        if (!startingPlayerId) {
+            const firstEntry = this.state.players.entries().next().value;
+            if (firstEntry) {
+                const [id, player] = firstEntry;
+                player.symbol = 1;
+                startingPlayerId = id;
+            }
+        }
+
+        if (!startingPlayerId) {
+            console.warn("Unable to determine starting player");
+            return;
+        }
+
+        this.state.currentTurn = startingPlayerId;
+
+        // Ensure other players have symbols
+        for (let [id, player] of this.state.players) {
+            if (id !== startingPlayerId && player.symbol !== 2) {
+                player.symbol = 2;
+            }
+        }
+
+        this.resetReadiness();
+        this.broadcast("start_game", { startPlayer: this.state.currentTurn });
+    }
+
+    clearBoard() {
+        for (let i = 0; i < 225; i++) {
+            this.state.board[i] = 0;
+        }
+    }
+
+    resetReadiness() {
+        for (let [, player] of this.state.players) {
+            player.isReady = false;
+        }
     }
 }
 

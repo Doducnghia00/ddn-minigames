@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useCallback } from 'react';
 
 const GameContext = createContext(null);
 
@@ -19,13 +19,13 @@ export const GameProvider = ({ children }) => {
         setRoomData(data);
     };
 
-    const leaveRoom = () => {
-        if (currentRoom) {
+    const leaveRoom = useCallback((options = {}) => {
+        if (currentRoom && !options.skipRemote) {
             currentRoom.leave();
         }
         setCurrentRoom(null);
         setRoomData(null);
-    };
+    }, [currentRoom]);
 
     const value = {
         currentRoom,
