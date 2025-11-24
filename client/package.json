@@ -13,10 +13,14 @@
     "dependencies": {
         "colyseus.js": "^0.15.0",
         "firebase": "^12.6.0",
-        "phaser": "^3.60.0"
+        "phaser": "^3.60.0",
+        "react": "^19.2.0",
+        "react-dom": "^19.2.0",
+        "react-router-dom": "^7.9.6"
     },
     "devDependencies": {
         "@tailwindcss/vite": "^4.1.17",
+        "@vitejs/plugin-react": "^5.1.1",
         "autoprefixer": "^10.4.22",
         "tailwindcss": "^4.1.17",
         "vite": "^7.2.4"
