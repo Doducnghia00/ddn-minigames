@@ -16,7 +16,7 @@ const GamePage = () => {
     const phaserGameRef = useRef(null);
     const kickedMessageRef = useRef(null);
     const hasNavigatedRef = useRef(false);
-    
+
     const [players, setPlayers] = useState(new Map());
     const [gameState, setGameState] = useState('waiting');
     const [roomName, setRoomName] = useState('Game Room');
@@ -79,10 +79,10 @@ const GamePage = () => {
 
             phaserGameRef.current = new Phaser.Game(config);
         }
-        
+
         const timeoutId = setTimeout(() => {
             if (!phaserGameRef.current) return;
-            
+
             const scene = phaserGameRef.current.scene.scenes[0];
             if (scene) {
                 scene.user = user;
@@ -139,6 +139,13 @@ const GamePage = () => {
             clearTimeout(timeoutId);
             if (phaserGameRef.current) {
                 console.log("Destroying Phaser game instance");
+
+                // Clean up DOM elements before destroying Phaser
+                const scene = phaserGameRef.current.scene.scenes[0];
+                if (scene && scene.cleanup) {
+                    scene.cleanup();
+                }
+
                 phaserGameRef.current.destroy(true);
                 phaserGameRef.current = null;
             }
@@ -192,7 +199,7 @@ const GamePage = () => {
                                 <span className="px-2 py-0.5 bg-green-500/20 text-green-400 text-xs rounded-full">Live</span>
                             </div>
                         </div>
-                        
+
                         {/* Game Status Badge */}
                         <div className="glass-effect rounded-xl px-6 py-3 shadow-lg">
                             <div className="text-xs text-gray-400 uppercase font-bold tracking-wider mb-1">Status</div>
@@ -231,11 +238,10 @@ const GamePage = () => {
                             <button
                                 onClick={handleToggleReady}
                                 disabled={gameState === 'playing' || totalPlayers === 0}
-                                className={`px-4 py-2 rounded-lg font-semibold transition ${
-                                    isReady
+                                className={`px-4 py-2 rounded-lg font-semibold transition ${isReady
                                         ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/40'
                                         : 'bg-slate-700/60 text-slate-200 border border-slate-500/50 hover:bg-slate-600/60'
-                                } ${gameState === 'playing' ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                    } ${gameState === 'playing' ? 'opacity-50 cursor-not-allowed' : ''}`}
                             >
                                 {isReady ? '✅ Ready' : readyIdleLabel}
                             </button>
@@ -243,11 +249,10 @@ const GamePage = () => {
                                 <button
                                     onClick={handleStartMatch}
                                     disabled={!canStartMatch}
-                                    className={`px-4 py-2 rounded-lg font-semibold transition ${
-                                        canStartMatch
+                                    className={`px-4 py-2 rounded-lg font-semibold transition ${canStartMatch
                                             ? 'bg-blue-500/80 text-white hover:bg-blue-500'
                                             : 'bg-slate-700/60 text-slate-400 cursor-not-allowed'
-                                    }`}
+                                        }`}
                                 >
                                     🚀 Start Match
                                 </button>

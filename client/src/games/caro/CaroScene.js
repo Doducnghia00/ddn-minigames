@@ -12,7 +12,7 @@ export class CaroScene extends Phaser.Scene {
         this.boardSize = 15;
         this.offsetX = (800 - this.cellSize * this.boardSize) / 2;
         this.offsetY = (600 - this.cellSize * this.boardSize) / 2;
-        
+
         // Game state
         this.players = new Map();
         this.gameState = 'waiting';
@@ -51,6 +51,13 @@ export class CaroScene extends Phaser.Scene {
             this.statusDot = null;
             this.statusText = null;
         }
+
+        // Fallback: remove any orphaned turn indicator
+        const orphanedIndicator = document.getElementById('caro-turn-indicator');
+        if (orphanedIndicator) {
+            orphanedIndicator.remove();
+        }
+
         if (this.gameOverModal) this.gameOverModal.destroy();
         if (this.boardMarks) {
             this.boardMarks.forEach(mark => mark.destroy());
@@ -64,7 +71,7 @@ export class CaroScene extends Phaser.Scene {
         // Listen to state changes
         this.room.onStateChange((state) => {
             this.updateBoard(state.board);
-            
+
             // Update game state
             const playerMap = new Map();
             state.players.forEach((player, id) => {
@@ -79,12 +86,12 @@ export class CaroScene extends Phaser.Scene {
             this.players = playerMap;
             this.roomOwner = state.roomOwner;
             this.currentTurn = state.currentTurn;
-            
+
             // Only update gameState if not finished
             if (this.gameState !== 'finished') {
                 this.gameState = state.gameState;
             }
-            
+
             this.updateGameUI();
         });
 
@@ -165,10 +172,10 @@ export class CaroScene extends Phaser.Scene {
         } else if (this.gameState === 'playing') {
             const currentPlayer = this.players.get(this.currentTurn);
             const isMyTurn = this.currentTurn === this.room?.sessionId;
-            
+
             statusDot.style.background = isMyTurn ? '#10b981' : '#ef4444';
             statusDot.style.animation = 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite';
-            
+
             if (isMyTurn) {
                 statusText.innerHTML = '🎮 Your turn';
                 statusText.style.color = '#10b981';
@@ -327,15 +334,15 @@ export class CaroScene extends Phaser.Scene {
                 if (!this.room || this.gameState !== 'playing') {
                     return;
                 }
-                
+
                 // Only allow moves on your turn
                 if (this.currentTurn !== this.room.sessionId) {
                     return;
                 }
-                
+
                 const x = Math.floor((pointer.x - this.offsetX) / this.cellSize);
                 const y = Math.floor((pointer.y - this.offsetY) / this.cellSize);
-                
+
                 if (x >= 0 && x < this.boardSize && y >= 0 && y < this.boardSize) {
                     this.room.send("move", { x, y });
                 }

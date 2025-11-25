@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 const Header = () => {
     const { user, signOut } = useAuth();
     const navigate = useNavigate();
+    const location = useLocation();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [profileMenuOpen, setProfileMenuOpen] = useState(false);
 
@@ -12,6 +13,9 @@ const Header = () => {
         await signOut();
         navigate('/');
     };
+
+    // Hide Sign In button on login page
+    const isLoginPage = location.pathname === '/';
 
     return (
         <header className="bg-slate-900/95 backdrop-blur-md border-b border-slate-700/50 sticky top-0 z-50">
@@ -28,20 +32,20 @@ const Header = () => {
                     {/* Desktop Navigation */}
                     {user && (
                         <nav className="hidden md:flex items-center gap-6">
-                            <Link 
-                                to="/lobby" 
+                            <Link
+                                to="/lobby"
                                 className="text-gray-300 hover:text-white font-medium transition-colors"
                             >
                                 Lobby
                             </Link>
-                            <a 
-                                href="#" 
+                            <a
+                                href="#"
                                 className="text-gray-300 hover:text-white font-medium transition-colors"
                             >
                                 Leaderboard
                             </a>
-                            <a 
-                                href="#" 
+                            <a
+                                href="#"
                                 className="text-gray-300 hover:text-white font-medium transition-colors"
                             >
                                 About
@@ -57,7 +61,7 @@ const Header = () => {
                                     onClick={() => setProfileMenuOpen(!profileMenuOpen)}
                                     className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-800 transition-colors"
                                 >
-                                    <img 
+                                    <img
                                         src={user.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=10b981&color=fff`}
                                         alt={user.name}
                                         className="w-8 h-8 rounded-full border-2 border-green-500"
@@ -105,7 +109,7 @@ const Header = () => {
                                     </div>
                                 )}
                             </div>
-                        ) : (
+                        ) : !isLoginPage && (
                             <Link
                                 to="/"
                                 className="px-6 py-2 bg-gradient-to-r from-green-600 to-green-500 hover:from-green-500 hover:to-green-400 text-white font-bold rounded-lg shadow-lg transition-all transform hover:-translate-y-0.5"
@@ -136,22 +140,22 @@ const Header = () => {
                 {user && mobileMenuOpen && (
                     <div className="md:hidden py-4 border-t border-slate-700 animate-slide-down">
                         <nav className="flex flex-col gap-2">
-                            <Link 
-                                to="/lobby" 
+                            <Link
+                                to="/lobby"
                                 onClick={() => setMobileMenuOpen(false)}
                                 className="px-4 py-2 text-gray-300 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
                             >
                                 Lobby
                             </Link>
-                            <a 
-                                href="#" 
+                            <a
+                                href="#"
                                 onClick={() => setMobileMenuOpen(false)}
                                 className="px-4 py-2 text-gray-300 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
                             >
                                 Leaderboard
                             </a>
-                            <a 
-                                href="#" 
+                            <a
+                                href="#"
                                 onClick={() => setMobileMenuOpen(false)}
                                 className="px-4 py-2 text-gray-300 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
                             >

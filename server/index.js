@@ -47,6 +47,49 @@ app.post('/api/login', authenticate, (req, res) => {
     res.json({ message: 'Authenticated successfully', user: req.user });
 });
 
+// Guest Login Endpoint
+app.post('/api/guest-login', (req, res) => {
+    const { username } = req.body;
+
+    // Validate username
+    if (!username || typeof username !== 'string') {
+        return res.status(400).json({ error: 'Username is required' });
+    }
+
+    // Trim and validate length
+    const trimmedUsername = username.trim();
+    if (trimmedUsername.length < 2 || trimmedUsername.length > 20) {
+        return res.status(400).json({ error: 'Username must be between 2 and 20 characters' });
+    }
+
+    // Validate characters (allow letters, numbers, spaces, and some special chars)
+    const validUsernameRegex = /^[a-zA-Z0-9\s_-]+$/;
+    if (!validUsernameRegex.test(trimmedUsername)) {
+        return res.status(400).json({ error: 'Username contains invalid characters' });
+    }
+
+    // Check for excessive whitespace
+    if (trimmedUsername.includes('  ')) {
+        return res.status(400).json({ error: 'Username cannot contain consecutive spaces' });
+    }
+
+    // Generate unique guest ID
+    const guestId = `guest_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+
+    const guestUser = {
+        uid: guestId,
+        name: trimmedUsername,
+        email: `${guestId}@guest.local`,
+        isGuest: true,
+        avatar: ''
+    };
+
+    res.json({
+        message: 'Guest login successful',
+        user: guestUser
+    });
+});
+
 // Create HTTP server
 const server = http.createServer(app);
 
