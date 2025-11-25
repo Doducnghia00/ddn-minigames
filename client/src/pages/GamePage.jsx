@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import Phaser from 'phaser';
 import { useAuth } from '../context/AuthContext';
 import { useGame } from '../context/GameContext';
-import { CaroScene } from '../games/caro/CaroScene';
+import { getGameConfig } from '../config/gameRegistry';
 import { getMergedGameProfile } from '../config/gameProfiles';
 import PlayerCard from '../components/games/PlayerCard';
 import Modal from '../components/ui/Modal';
@@ -38,8 +38,13 @@ const GamePage = () => {
 
     const activeGameId = roomData?.gameId || currentRoom?.metadata?.gameId || 'default';
     const gameProfile = getMergedGameProfile(activeGameId);
-    const { statusTexts, readyLabel: readyIdleLabel, minPlayers, components } = gameProfile;
+    const { statusTexts, readyLabel: readyIdleLabel, minPlayers, components, behaviors } = gameProfile;
     const { RoleBadge, StatusBadge, ExtraInfo } = components;
+    const {
+        turnBased: isTurnBased = false,
+        readyStrategy = 'allPlayers',
+        allowKicks = true
+    } = behaviors || {};
 
     useEffect(() => {
         if (roomData?.roomName) {
@@ -58,12 +63,17 @@ const GamePage = () => {
         if (phaserGameRef.current) {
             console.log("Phaser game already initialized, skipping...");
         } else {
+            // Get game configuration dynamically
+            const SYSTEM_FALLBACK_GAME_ID = DEFAULT_GAME_ID || Object.keys(GAME_REGISTRY)[0];
+            const gameId = roomData?.gameId || currentRoom?.metadata?.gameId || SYSTEM_FALLBACK_GAME_ID;
+            const gameConfig = getGameConfig(gameId);
+
+            console.log(`Initializing game: ${gameId}`, gameConfig);
+
             const config = {
                 type: Phaser.AUTO,
-                width: 800,
-                height: 600,
+                ...gameConfig.phaserConfig,  // Dynamic config from registry
                 parent: gameRef.current,
-                backgroundColor: '#111827',
                 dom: {
                     createContainer: true
                 },
@@ -74,7 +84,7 @@ const GamePage = () => {
                         debug: false
                     }
                 },
-                scene: [CaroScene]
+                scene: [gameConfig.scene]  // Dynamic scene from registry
             };
 
             phaserGameRef.current = new Phaser.Game(config);
@@ -126,7 +136,7 @@ const GamePage = () => {
             });
             setPlayers(playerMap);
             setRoomOwner(state.roomOwner);
-            setCurrentTurn(state.currentTurn || null);
+            setCurrentTurn(isTurnBased ? (state.currentTurn || null) : null);
 
             const readyPlayers = Array.from(playerMap.values()).filter((p) => p.isReady).length;
             setReadyCount(readyPlayers);
@@ -150,7 +160,7 @@ const GamePage = () => {
                 phaserGameRef.current = null;
             }
         };
-    }, [currentRoom, user, leaveRoom, redirectToLobby]);
+    }, [currentRoom, user, leaveRoom, redirectToLobby, isTurnBased]);
 
     const handleLeave = () => {
         leaveRoom();
@@ -181,10 +191,21 @@ const GamePage = () => {
     };
 
     const totalPlayers = players.size;
-    const readinessTarget = Math.max(totalPlayers, minPlayers);
+    const readinessTarget = readyStrategy === 'allPlayers'
+        ? Math.max(totalPlayers, 1)
+        : Math.max(minPlayers, 1);
     const hasEnoughPlayers = totalPlayers >= minPlayers;
-    const everyoneReady = hasEnoughPlayers && totalPlayers > 0 && readyCount === totalPlayers;
+    const everyoneReady = (() => {
+        switch (readyStrategy) {
+            case 'minPlayers':
+                return hasEnoughPlayers;
+            case 'allPlayers':
+            default:
+                return totalPlayers > 0 && readyCount === totalPlayers;
+        }
+    })();
     const canStartMatch = currentRoom?.sessionId === roomOwner && gameState !== 'playing' && everyoneReady;
+    const canKickPlayers = allowKicks && currentRoom?.sessionId === roomOwner;
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 py-8">
@@ -234,13 +255,16 @@ const GamePage = () => {
                         <div className="text-sm text-gray-300">
                             Ready: <span className="text-white font-semibold">{readyCount}/{readinessTarget}</span>
                         </div>
+                        <div className="text-xs text-gray-500">
+                            Target: {readyStrategy === 'allPlayers' ? 'Everyone ready' : `${minPlayers}+ players`}
+                        </div>
                         <div className="flex flex-col sm:flex-row gap-2">
                             <button
                                 onClick={handleToggleReady}
                                 disabled={gameState === 'playing' || totalPlayers === 0}
                                 className={`px-4 py-2 rounded-lg font-semibold transition ${isReady
-                                        ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/40'
-                                        : 'bg-slate-700/60 text-slate-200 border border-slate-500/50 hover:bg-slate-600/60'
+                                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/40'
+                                    : 'bg-slate-700/60 text-slate-200 border border-slate-500/50 hover:bg-slate-600/60'
                                     } ${gameState === 'playing' ? 'opacity-50 cursor-not-allowed' : ''}`}
                             >
                                 {isReady ? '✅ Ready' : readyIdleLabel}
@@ -250,8 +274,8 @@ const GamePage = () => {
                                     onClick={handleStartMatch}
                                     disabled={!canStartMatch}
                                     className={`px-4 py-2 rounded-lg font-semibold transition ${canStartMatch
-                                            ? 'bg-blue-500/80 text-white hover:bg-blue-500'
-                                            : 'bg-slate-700/60 text-slate-400 cursor-not-allowed'
+                                        ? 'bg-blue-500/80 text-white hover:bg-blue-500'
+                                        : 'bg-slate-700/60 text-slate-400 cursor-not-allowed'
                                         }`}
                                 >
                                     🚀 Start Match
@@ -280,9 +304,11 @@ const GamePage = () => {
                                         player={player}
                                         isOwner={player.isOwner}
                                         isCurrentUser={player.id === currentRoom?.sessionId}
-                                        currentTurn={currentTurn}
+                                        currentTurn={isTurnBased ? currentTurn : null}
                                         gameState={gameState}
-                                        onKick={currentRoom?.sessionId === roomOwner ? handleKick : null}
+                                        onKick={canKickPlayers ? handleKick : null}
+                                        showTurnIndicator={isTurnBased}
+                                        allowKickActions={allowKicks}
                                         renderRoleBadge={RoleBadge ? (p) => <RoleBadge player={p} /> : null}
                                         renderStatusBadge={StatusBadge ? (p, ctx) => <StatusBadge player={p} {...ctx} /> : null}
                                         renderExtraInfo={ExtraInfo ? (p) => <ExtraInfo player={p} /> : null}

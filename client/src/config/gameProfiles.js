@@ -28,6 +28,11 @@ export const DEFAULT_GAME_PROFILE = {
         playing: '🎮 Game in progress',
         finished: '🏁 Game finished - Ready to continue'
     },
+    behaviors: {
+        turnBased: false,
+        readyStrategy: 'allPlayers',
+        allowKicks: true
+    },
     components: {
         RoleBadge: null,
         StatusBadge: null,
@@ -43,6 +48,11 @@ export const GAME_PROFILES = {
             waiting: '⏳ Waiting for opponent...',
             playing: '🎮 Caro match in progress',
             finished: '🏁 Caro match finished - Ready to play again'
+        },
+        behaviors: {
+            turnBased: true,
+            readyStrategy: 'allPlayers',
+            allowKicks: true
         },
         components: {
             RoleBadge: CaroRoleBadge,
@@ -85,6 +95,10 @@ export const getMergedGameProfile = (gameId) => {
         components: {
             ...DEFAULT_GAME_PROFILE.components,
             ...(gameProfile.components || {})
+        },
+        behaviors: {
+            ...DEFAULT_GAME_PROFILE.behaviors,
+            ...(gameProfile.behaviors || {})
         }
     };
 };

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { SITE_CONFIG } from '../config/siteConfig';
 
 const Header = () => {
     const { user, signOut } = useAuth();
@@ -24,9 +25,9 @@ const Header = () => {
                     {/* Logo */}
                     <Link to={user ? "/lobby" : "/"} className="flex items-center gap-3 group">
                         <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-blue-500 rounded-lg flex items-center justify-center shadow-lg group-hover:shadow-green-500/50 transition-all">
-                            <span className="text-2xl">🎮</span>
+                            <span className="text-2xl">{SITE_CONFIG.brand.logo}</span>
                         </div>
-                        <span className="text-xl font-bold gradient-text hidden sm:block">DDN Games</span>
+                        <span className="text-xl font-bold gradient-text hidden sm:block">{SITE_CONFIG.brand.name}</span>
                     </Link>
 
                     {/* Desktop Navigation */}

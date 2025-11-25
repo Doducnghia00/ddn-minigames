@@ -1,19 +1,23 @@
-const admin = require('firebase-admin');
+const AUTH_CONFIG = require('./config/auth');
 
-// Initialize Firebase Admin
-// Ideally, you should use a service account key file or environment variables
-// For this setup, we'll assume GOOGLE_APPLICATION_CREDENTIALS env var is set
-// or use a placeholder that warns the user.
+let admin = null;
 
-if (!admin.apps.length) {
-    try {
-        admin.initializeApp({
-            credential: admin.credential.applicationDefault(),
-        });
-        console.log("Firebase Admin initialized successfully");
-    } catch (error) {
-        console.warn("Firebase Admin initialization failed. Make sure GOOGLE_APPLICATION_CREDENTIALS is set or provide a service account key.");
-        console.warn("Error:", error.message);
+// Only initialize Firebase Admin if Google login is enabled
+if (AUTH_CONFIG.enableGoogleLogin) {
+    admin = require('firebase-admin');
+
+    if (!admin.apps.length) {
+        try {
+            admin.initializeApp({
+                credential: admin.credential.applicationDefault(),
+            });
+            console.log('🔥 Firebase Admin initialized successfully');
+        } catch (error) {
+            console.error('❌ Firebase Admin initialization failed');
+            console.error('Make sure GOOGLE_APPLICATION_CREDENTIALS is set correctly');
+            console.error('Error:', error.message);
+            throw error;
+        }
     }
 }
 

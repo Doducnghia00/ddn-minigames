@@ -1,13 +1,20 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as Colyseus from 'colyseus.js';
 import { useAuth } from '../context/AuthContext';
 import { useGame } from '../context/GameContext';
+import { getGameDefinitions, getGameConfig, DEFAULT_GAME_ID } from '../config/gameRegistry';
 
 const LobbyPage = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
     const { joinRoom } = useGame();
+
+    const gameDefinitions = useMemo(() => getGameDefinitions(), []);
+    const SYSTEM_FALLBACK_GAME_ID = DEFAULT_GAME_ID || Object.keys(GAME_REGISTRY)[0];
+    const defaultGameId = gameDefinitions[0]?.id || SYSTEM_FALLBACK_GAME_ID;
+    const [selectedGameId, setSelectedGameId] = useState(defaultGameId);
+    const selectedGame = useMemo(() => getGameConfig(selectedGameId || defaultGameId), [selectedGameId, defaultGameId]);
 
     const [lobbyRoom, setLobbyRoom] = useState(null);
     const [availableRooms, setAvailableRooms] = useState([]);
@@ -69,18 +76,30 @@ const LobbyPage = () => {
     };
 
     const handleCreateRoom = async () => {
+        if (!selectedGameId) {
+            alert("No games available to create.");
+            return;
+        }
+
         const client = new Colyseus.Client(import.meta.env.VITE_WS_URL);
+        const gameConfig = selectedGame || getGameConfig(selectedGameId);
+        const defaultOptions = gameConfig?.createRoomDefaults?.(user) || {};
+        const resolvedRoomName = (newRoomName || '').trim() || defaultOptions.roomName || `${user.name || user.email || 'Player'}'s Room`;
+        const resolvedPassword = (newRoomPassword ?? '').trim() || defaultOptions.password || '';
+
         try {
-            const room = await client.joinOrCreate("caro", {
-                roomName: newRoomName || `${user.name}'s Room`,
-                password: newRoomPassword,
+            const room = await client.joinOrCreate(selectedGameId, {
+                ...defaultOptions,
+                roomName: resolvedRoomName,
+                password: resolvedPassword,
                 name: user.name || user.email,
                 avatar: user.avatar || ""
             });
 
             joinRoom(room, {
-                roomName: newRoomName || room.metadata?.roomName,
-                gameId: room.metadata?.gameId || 'caro'
+                roomName: resolvedRoomName || room.metadata?.roomName,
+                gameId: room.metadata?.gameId || selectedGameId,
+                gameName: gameConfig?.name
             });
             navigate('/game');
         } catch (e) {
@@ -98,9 +117,13 @@ const LobbyPage = () => {
                 avatar: user.avatar || ""
             });
 
+            const joinedGameId = room.metadata?.gameId || DEFAULT_GAME_ID;
+            const joinedGameConfig = getGameConfig(joinedGameId);
+
             joinRoom(room, {
                 roomName: room.metadata?.roomName,
-                gameId: room.metadata?.gameId
+                gameId: joinedGameId,
+                gameName: joinedGameConfig?.name
             });
             navigate('/game');
         } catch (e) {
@@ -163,16 +186,45 @@ const LobbyPage = () => {
                     <div className="lg:col-span-1 flex flex-col gap-4 animate-slide-up">
                         <h2 className="text-sm font-bold text-gray-400 uppercase tracking-wider">Featured Games</h2>
 
-                        <div className="glass-effect rounded-2xl p-6 hover:border-green-500/50 transition-all duration-300 cursor-pointer group">
-                            <div className="flex justify-between items-start mb-4">
-                                <div className="bg-green-500/20 text-green-400 text-xs font-bold px-2 py-1 rounded-full">Active</div>
+                        {gameDefinitions.length === 0 ? (
+                            <div className="glass-effect rounded-2xl p-6 border border-slate-700 text-gray-400 text-sm">
+                                No games configured yet. Add entries to GAME_REGISTRY to enable selection.
                             </div>
-                            <div className="h-32 bg-gradient-to-br from-slate-700 to-slate-800 rounded-xl mb-4 flex items-center justify-center text-5xl shadow-inner group-hover:scale-105 transition-transform duration-300">
-                                ⭕❌
-                            </div>
-                            <h3 className="text-xl font-bold text-white mb-1">Caro Online</h3>
-                            <p className="text-gray-400 text-sm">Classic 5-in-a-row strategy game</p>
-                        </div>
+                        ) : (
+                            gameDefinitions.map((game) => {
+                                const isActive = game.id === selectedGameId;
+                                const accent = game.lobby?.accent === 'green'
+                                    ? 'from-green-600 to-emerald-500'
+                                    : 'from-blue-600 to-cyan-500';
+                                return (
+                                    <button
+                                        key={game.id}
+                                        onClick={() => setSelectedGameId(game.id)}
+                                        className={`
+                                            text-left glass-effect rounded-2xl p-6 border transition-all duration-300 group
+                                            ${isActive ? 'border-green-500 shadow-lg shadow-green-900/30' : 'border-slate-700 hover:border-slate-500'}
+                                        `}
+                                    >
+                                        <div className="flex justify-between items-start mb-4">
+                                            <div className="bg-green-500/20 text-green-400 text-xs font-bold px-2 py-1 rounded-full">
+                                                {game.lobby?.status || 'Available'}
+                                            </div>
+                                            {isActive && (
+                                                <span className="text-xs text-green-300 font-semibold">Selected</span>
+                                            )}
+                                        </div>
+                                        <div className={`h-32 rounded-xl mb-4 flex items-center justify-center text-4xl shadow-inner bg-gradient-to-br ${accent}`}>
+                                            {game.lobby?.emoji || '🎮'}
+                                        </div>
+                                        <h3 className="text-xl font-bold text-white mb-1">{game.name}</h3>
+                                        <p className="text-gray-400 text-sm">{game.description}</p>
+                                        <div className="text-xs text-gray-500 mt-3">
+                                            Players: {game.minPlayers} - {game.maxPlayers}
+                                        </div>
+                                    </button>
+                                );
+                            })
+                        )}
                     </div>
 
                     {/* Room List */}
@@ -194,37 +246,44 @@ const LobbyPage = () => {
                                         <div className="text-sm text-gray-600">Be the first to create one!</div>
                                     </div>
                                 ) : (
-                                    availableRooms.map(room => (
-                                        <div
-                                            key={room.roomId}
-                                            className="bg-slate-700/40 hover:bg-slate-700/80 border border-slate-700/50 hover:border-slate-600 p-4 rounded-xl flex justify-between items-center transition-all duration-200 group"
-                                        >
-                                            <div className="flex items-center gap-4">
-                                                <div className="w-12 h-12 rounded-lg bg-slate-800 flex items-center justify-center text-2xl shadow-inner">
-                                                    {room.metadata?.isLocked ? '🔒' : '🌍'}
-                                                </div>
-                                                <div>
-                                                    <div className="font-bold text-white group-hover:text-green-400 transition-colors">
-                                                        {room.metadata?.roomName || room.roomId}
-                                                    </div>
-                                                    <div className="text-xs text-gray-400 flex items-center gap-2">
-                                                        <span>ID: {room.roomId.slice(0, 8)}...</span>
-                                                        <span className="w-1 h-1 rounded-full bg-gray-600"></span>
-                                                        <span className={room.clients >= room.maxClients ? 'text-red-400' : 'text-green-400'}>
-                                                            {room.clients} / {room.maxClients} Players
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <button
-                                                onClick={() => handleJoinRequest(room.roomId, room.metadata?.isLocked)}
-                                                disabled={room.clients >= room.maxClients}
-                                                className="px-4 py-2 bg-blue-600/90 hover:bg-blue-500 disabled:bg-gray-600 disabled:cursor-not-allowed text-white text-sm font-bold rounded-lg shadow-lg shadow-blue-900/20 transition-all transform hover:-translate-y-0.5 active:translate-y-0 disabled:transform-none"
+                                    availableRooms.map(room => {
+                                        const roomGameId = room.metadata?.gameId || DEFAULT_GAME_ID;
+                                        const roomGame = getGameConfig(roomGameId);
+                                        const isFull = room.clients >= room.maxClients;
+                                        return (
+                                            <div
+                                                key={room.roomId}
+                                                className="bg-slate-700/40 hover:bg-slate-700/80 border border-slate-700/50 hover:border-slate-600 p-4 rounded-xl flex justify-between items-center transition-all duration-200 group"
                                             >
-                                                {room.clients >= room.maxClients ? 'Full' : 'Join'}
-                                            </button>
-                                        </div>
-                                    ))
+                                                <div className="flex items-center gap-4">
+                                                    <div className="w-12 h-12 rounded-lg bg-slate-800 flex items-center justify-center text-2xl shadow-inner">
+                                                        {room.metadata?.isLocked ? '🔒' : '🌍'}
+                                                    </div>
+                                                    <div>
+                                                        <div className="font-bold text-white group-hover:text-green-400 transition-colors">
+                                                            {room.metadata?.roomName || room.roomId}
+                                                        </div>
+                                                        <div className="text-xs text-gray-400 flex items-center gap-2 flex-wrap">
+                                                            <span className="text-green-300 font-semibold">{roomGame?.name || 'Unknown Game'}</span>
+                                                            <span className="w-1 h-1 rounded-full bg-gray-600"></span>
+                                                            <span>ID: {room.roomId.slice(0, 8)}...</span>
+                                                            <span className="w-1 h-1 rounded-full bg-gray-600"></span>
+                                                            <span className={isFull ? 'text-red-400' : 'text-green-400'}>
+                                                                {room.clients} / {room.maxClients} Players
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <button
+                                                    onClick={() => handleJoinRequest(room.roomId, room.metadata?.isLocked)}
+                                                    disabled={isFull}
+                                                    className="px-4 py-2 bg-blue-600/90 hover:bg-blue-500 disabled:bg-gray-600 disabled:cursor-not-allowed text-white text-sm font-bold rounded-lg shadow-lg shadow-blue-900/20 transition-all transform hover:-translate-y-0.5 active:translate-y-0 disabled:transform-none"
+                                                >
+                                                    {isFull ? 'Full' : 'Join'}
+                                                </button>
+                                            </div>
+                                        );
+                                    })
                                 )}
                             </div>
                         </div>
@@ -239,6 +298,27 @@ const LobbyPage = () => {
                         <h3 className="text-2xl font-bold text-white mb-6">Create Room</h3>
 
                         <div className="flex flex-col gap-4 mb-8">
+                            <div>
+                                <label className="block text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">
+                                    Game
+                                </label>
+                                <select
+                                    value={selectedGameId || ''}
+                                    onChange={(e) => setSelectedGameId(e.target.value)}
+                                    className="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-lg focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 text-white transition-all"
+                                >
+                                    {gameDefinitions.map((game) => (
+                                        <option key={game.id} value={game.id}>
+                                            {game.name}
+                                        </option>
+                                    ))}
+                                </select>
+                                {selectedGame && (
+                                    <p className="text-xs text-gray-500 mt-2">
+                                        {selectedGame.description}
+                                    </p>
+                                )}
+                            </div>
                             <div>
                                 <label className="block text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">
                                     Room Name

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { auth } from '../firebase';
 import { onAuthStateChanged, signOut as firebaseSignOut } from 'firebase/auth';
+import { AUTH_CONFIG } from '../config/auth';
 
 const AuthContext = createContext(null);
 
@@ -21,66 +22,85 @@ export const AuthProvider = ({ children }) => {
     useEffect(() => {
         let isGuestSession = false;
 
-        // Check for existing guest session first
-        const storedGuest = localStorage.getItem(GUEST_STORAGE_KEY);
-        if (storedGuest) {
-            try {
-                const guestUser = JSON.parse(storedGuest);
-                setUser(guestUser);
-                isGuestSession = true;
-            } catch (error) {
-                console.error('Failed to parse guest user:', error);
-                localStorage.removeItem(GUEST_STORAGE_KEY);
+        // Check for existing guest session first (if guest login is enabled)
+        if (AUTH_CONFIG.enableGuestLogin) {
+            const storedGuest = localStorage.getItem(GUEST_STORAGE_KEY);
+            if (storedGuest) {
+                try {
+                    const guestUser = JSON.parse(storedGuest);
+                    setUser(guestUser);
+                    isGuestSession = true;
+                } catch (error) {
+                    console.error('Failed to parse guest user:', error);
+                    localStorage.removeItem(GUEST_STORAGE_KEY);
+                }
             }
         }
 
-        // Listen for Firebase auth changes
-        const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-            if (firebaseUser) {
-                // Clear any guest session when Firebase user signs in
-                localStorage.removeItem(GUEST_STORAGE_KEY);
-                isGuestSession = false;
+        // Listen for Firebase auth changes (only if Google login is enabled)
+        if (AUTH_CONFIG.enableGoogleLogin && auth) {
+            const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+                if (firebaseUser) {
+                    // Clear any guest session when Firebase user signs in
+                    localStorage.removeItem(GUEST_STORAGE_KEY);
+                    isGuestSession = false;
 
-                try {
-                    const token = await firebaseUser.getIdToken();
-                    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/login`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${token}`
-                        }
-                    });
-
-                    if (response.ok) {
-                        const data = await response.json();
-                        setUser({
-                            ...data.user,
-                            name: firebaseUser.displayName || data.user.name || data.user.email,
-                            avatar: firebaseUser.photoURL || "",
-                            email: firebaseUser.email,
-                            isGuest: false
+                    try {
+                        const token = await firebaseUser.getIdToken();
+                        const response = await fetch(`${import.meta.env.VITE_API_URL}/api/login`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${token}`
+                            }
                         });
-                    } else {
+
+                        if (response.ok) {
+                            const data = await response.json();
+                            setUser({
+                                ...data.user,
+                                name: firebaseUser.displayName || data.user.name || data.user.email,
+                                avatar: firebaseUser.photoURL || "",
+                                email: firebaseUser.email,
+                                isGuest: false
+                            });
+                        } else {
+                            // Parse error response
+                            const errorData = await response.json().catch(() => ({}));
+                            console.error('Server authentication failed:', errorData.error || response.statusText);
+                            setUser(null);
+                        }
+                    } catch (error) {
+                        console.error('Auth error:', error);
                         setUser(null);
                     }
-                } catch (error) {
-                    console.error('Auth error:', error);
-                    setUser(null);
+                    setLoading(false);
+                } else {
+                    // Only clear user if not a guest session
+                    if (!isGuestSession) {
+                        setUser(null);
+                    }
+                    setLoading(false);
                 }
-                setLoading(false);
-            } else {
-                // Only clear user if not a guest session
-                if (!isGuestSession) {
-                    setUser(null);
-                }
-                setLoading(false);
-            }
-        });
+            });
 
-        return () => unsubscribe();
+            return () => unsubscribe();
+        } else {
+            // No Firebase listener, just finish loading
+            setLoading(false);
+            return () => { };
+        }
     }, []);
 
     const guestLogin = async (username) => {
+        // Check if guest login is enabled
+        if (!AUTH_CONFIG.enableGuestLogin) {
+            return {
+                success: false,
+                error: 'Guest login is disabled'
+            };
+        }
+
         try {
             const response = await fetch(`${import.meta.env.VITE_API_URL}/api/guest-login`, {
                 method: 'POST',
@@ -115,7 +135,7 @@ export const AuthProvider = ({ children }) => {
             localStorage.removeItem(GUEST_STORAGE_KEY);
 
             // Sign out from Firebase if applicable
-            if (auth.currentUser) {
+            if (AUTH_CONFIG.enableGoogleLogin && auth && auth.currentUser) {
                 await firebaseSignOut(auth);
             }
 

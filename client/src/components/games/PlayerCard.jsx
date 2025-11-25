@@ -14,10 +14,12 @@ const PlayerCard = ({
     onKick,
     renderRoleBadge,
     renderStatusBadge,
-    renderExtraInfo
+    renderExtraInfo,
+    showTurnIndicator = true,
+    allowKickActions = true
 }) => {
-    const isMyTurn = currentTurn === player.id && gameState === 'playing';
-    const isActive = gameState === 'playing' && isMyTurn;
+    const isMyTurn = showTurnIndicator && currentTurn === player.id && gameState === 'playing';
+    const isActive = showTurnIndicator && gameState === 'playing' && isMyTurn;
 
     return (
         <div
@@ -77,7 +79,7 @@ const PlayerCard = ({
                     )}
 
                     {/* Turn Indicator */}
-                    {isMyTurn && (
+                    {showTurnIndicator && isMyTurn && (
                         <span 
                             className="text-green-400 text-xs font-bold px-1.5 py-0.5 bg-green-500/20 rounded animate-pulse"
                             title="Your Turn"
@@ -106,7 +108,7 @@ const PlayerCard = ({
             </div>
 
             {/* Kick Button (Owner only) */}
-            {onKick && isOwner && !isCurrentUser && (
+            {allowKickActions && onKick && isOwner && !isCurrentUser && (
                 <button
                     onClick={() => onKick(player.id)}
                     className="px-2 py-1 bg-red-500/20 hover:bg-red-500/30 text-red-400 text-xs rounded transition"

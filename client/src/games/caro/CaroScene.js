@@ -1,23 +1,20 @@
 import Phaser from 'phaser';
+import { TurnBasedGameScene } from '../base/TurnBasedGameScene';
+import { CARO_CONFIG } from './config';
 
-export class CaroScene extends Phaser.Scene {
+export class CaroScene extends TurnBasedGameScene {
     constructor() {
         super('CaroScene');
     }
 
     init(data) {
-        this.room = null;
-        this.user = data?.user || null;
-        this.cellSize = 40;
-        this.boardSize = 15;
-        this.offsetX = (800 - this.cellSize * this.boardSize) / 2;
-        this.offsetY = (600 - this.cellSize * this.boardSize) / 2;
+        super.init(data);
 
-        // Game state
-        this.players = new Map();
-        this.gameState = 'waiting';
-        this.currentTurn = null;
-        this.roomOwner = null;
+        // Caro-specific initialization
+        this.cellSize = CARO_CONFIG.rules.cellSize;
+        this.boardSize = CARO_CONFIG.rules.boardSize;
+        this.offsetX = (CARO_CONFIG.phaserConfig.width - this.cellSize * this.boardSize) / 2;
+        this.offsetY = (CARO_CONFIG.phaserConfig.height - this.cellSize * this.boardSize) / 2;
         this.boardMarks = new Map();
     }
 
@@ -34,10 +31,8 @@ export class CaroScene extends Phaser.Scene {
 
     // Method to set room from GamePage
     setRoom(room) {
-        this.room = room;
-        if (this.room) {
-            this.setupRoomEvents();
-        }
+        // Call base class setRoom which will call setupRoomEvents
+        super.setRoom(room);
     }
 
     cleanup() {
@@ -85,7 +80,7 @@ export class CaroScene extends Phaser.Scene {
             });
             this.players = playerMap;
             this.roomOwner = state.roomOwner;
-            this.currentTurn = state.currentTurn;
+            this.setCurrentTurn(state.currentTurn);
 
             // Only update gameState if not finished
             if (this.gameState !== 'finished') {
@@ -171,7 +166,7 @@ export class CaroScene extends Phaser.Scene {
             statusText.style.color = '#fbbf24';
         } else if (this.gameState === 'playing') {
             const currentPlayer = this.players.get(this.currentTurn);
-            const isMyTurn = this.currentTurn === this.room?.sessionId;
+            const isMyTurn = this.isMyTurn();
 
             statusDot.style.background = isMyTurn ? '#10b981' : '#ef4444';
             statusDot.style.animation = 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite';
@@ -336,7 +331,7 @@ export class CaroScene extends Phaser.Scene {
                 }
 
                 // Only allow moves on your turn
-                if (this.currentTurn !== this.room.sessionId) {
+                if (!this.isMyTurn()) {
                     return;
                 }
 
