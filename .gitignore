@@ -23,9 +23,16 @@ server/dist/
 # Environment & secrets
 .env
 .env.local
-.env.*
-client/.env*
-server/.env*
+.env.development
+.env.production
+client/.env
+client/.env.local
+client/.env.development
+client/.env.production
+server/.env
+server/.env.local
+server/.env.development
+server/.env.production
 server/credentials/*.json
 
 # Runtime data

@@ -43,7 +43,7 @@ export const AuthProvider = ({ children }) => {
 
                 try {
                     const token = await firebaseUser.getIdToken();
-                    const response = await fetch('http://localhost:2567/api/login', {
+                    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/login`, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -82,7 +82,7 @@ export const AuthProvider = ({ children }) => {
 
     const guestLogin = async (username) => {
         try {
-            const response = await fetch('http://localhost:2567/api/guest-login', {
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/api/guest-login`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

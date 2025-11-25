@@ -8,17 +8,17 @@ const LobbyPage = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
     const { joinRoom } = useGame();
-    
+
     const [lobbyRoom, setLobbyRoom] = useState(null);
     const [availableRooms, setAvailableRooms] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
-    
+
     // Modals
     const [createModalOpen, setCreateModalOpen] = useState(false);
     const [passwordModalOpen, setPasswordModalOpen] = useState(false);
     const [pendingRoomId, setPendingRoomId] = useState(null);
-    
+
     // Form data
     const [newRoomName, setNewRoomName] = useState('');
     const [newRoomPassword, setNewRoomPassword] = useState('');
@@ -34,7 +34,7 @@ const LobbyPage = () => {
     }, []);
 
     const connectToLobby = async () => {
-        const client = new Colyseus.Client('ws://localhost:2567');
+        const client = new Colyseus.Client(import.meta.env.VITE_WS_URL);
         try {
             const room = await client.joinOrCreate("lobby");
             setLobbyRoom(room);
@@ -69,7 +69,7 @@ const LobbyPage = () => {
     };
 
     const handleCreateRoom = async () => {
-        const client = new Colyseus.Client('ws://localhost:2567');
+        const client = new Colyseus.Client(import.meta.env.VITE_WS_URL);
         try {
             const room = await client.joinOrCreate("caro", {
                 roomName: newRoomName || `${user.name}'s Room`,
@@ -77,7 +77,7 @@ const LobbyPage = () => {
                 name: user.name || user.email,
                 avatar: user.avatar || ""
             });
-            
+
             joinRoom(room, {
                 roomName: newRoomName || room.metadata?.roomName,
                 gameId: room.metadata?.gameId || 'caro'
@@ -90,14 +90,14 @@ const LobbyPage = () => {
     };
 
     const handleJoinRoom = async (roomId, password = '') => {
-        const client = new Colyseus.Client('ws://localhost:2567');
+        const client = new Colyseus.Client(import.meta.env.VITE_WS_URL);
         try {
             const room = await client.joinById(roomId, {
                 password: password,
                 name: user.name || user.email,
                 avatar: user.avatar || ""
             });
-            
+
             joinRoom(room, {
                 roomName: room.metadata?.roomName,
                 gameId: room.metadata?.gameId
@@ -162,7 +162,7 @@ const LobbyPage = () => {
                     {/* Featured Games */}
                     <div className="lg:col-span-1 flex flex-col gap-4 animate-slide-up">
                         <h2 className="text-sm font-bold text-gray-400 uppercase tracking-wider">Featured Games</h2>
-                        
+
                         <div className="glass-effect rounded-2xl p-6 hover:border-green-500/50 transition-all duration-300 cursor-pointer group">
                             <div className="flex justify-between items-start mb-4">
                                 <div className="bg-green-500/20 text-green-400 text-xs font-bold px-2 py-1 rounded-full">Active</div>
@@ -185,7 +185,7 @@ const LobbyPage = () => {
                                     <span>Real-time updates</span>
                                 </div>
                             </div>
-                            
+
                             <div className="p-4 flex flex-col gap-3 max-h-[600px] overflow-y-auto custom-scrollbar">
                                 {availableRooms.length === 0 ? (
                                     <div className="flex flex-col items-center justify-center py-16 text-gray-500">
@@ -237,7 +237,7 @@ const LobbyPage = () => {
                 <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in px-4">
                     <div className="bg-slate-800 p-8 rounded-2xl w-full max-w-md border border-slate-700 shadow-2xl animate-scale-in">
                         <h3 className="text-2xl font-bold text-white mb-6">Create Room</h3>
-                        
+
                         <div className="flex flex-col gap-4 mb-8">
                             <div>
                                 <label className="block text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">
@@ -303,7 +303,7 @@ const LobbyPage = () => {
                             <h3 className="text-xl font-bold text-white mb-2">Private Room</h3>
                             <p className="text-gray-400 text-sm">Enter password to join</p>
                         </div>
-                        
+
                         <input
                             type="password"
                             value={joinPassword}
@@ -319,7 +319,7 @@ const LobbyPage = () => {
                                 }
                             }}
                         />
-                        
+
                         <div className="flex justify-end gap-3">
                             <button
                                 onClick={() => {

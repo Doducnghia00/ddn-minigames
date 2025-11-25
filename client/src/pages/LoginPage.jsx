@@ -21,7 +21,7 @@ const LoginPage = () => {
             const result = await signInWithPopup(auth, provider);
             const token = await result.user.getIdToken();
 
-            const response = await fetch('http://localhost:2567/api/login', {
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/api/login`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
