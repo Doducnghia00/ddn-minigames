@@ -37,6 +37,9 @@ export class FreeForAllGameScene extends BaseGameScene {
         this.playerDeaths.clear();
         this.matchTimer = 0;
         this.scoreLimit = 0;
+
+        // Reset events setup flag
+        this.eventsSetup = false;
     }
 
     /**
@@ -56,6 +59,15 @@ export class FreeForAllGameScene extends BaseGameScene {
      */
     setupRoomEvents() {
         if (!this.room || !this.room.state) return;
+
+        // Guard: prevent duplicate setup
+        if (this.eventsSetup) {
+            console.log('[FreeForAllGameScene] Events already setup, skipping');
+            return;
+        }
+        this.eventsSetup = true;
+
+        console.log('[FreeForAllGameScene] Setting up room events');
 
         // Listen to match timer updates
         this.room.state.listen('matchTimer', (value) => {
@@ -84,8 +96,16 @@ export class FreeForAllGameScene extends BaseGameScene {
             this.onWinnerDeclared(value);
         });
 
-        // Listen to player additions
+        // Initialize existing players FIRST
+        this.room.state.players.forEach((player, sessionId) => {
+            console.log('[FreeForAllGameScene] Initializing existing player:', sessionId, player.name);
+            this.onPlayerAdded(player, sessionId);
+            this.setupPlayerListeners(player, sessionId);
+        });
+
+        // Listen to player additions (NEW players joining after)
         this.room.state.players.onAdd = (player, sessionId) => {
+            console.log('[FreeForAllGameScene] New player added:', sessionId, player.name);
             this.onPlayerAdded(player, sessionId);
             this.setupPlayerListeners(player, sessionId);
         };

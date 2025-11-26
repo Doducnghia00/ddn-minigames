@@ -65,10 +65,19 @@ const GamePage = () => {
         } else {
             // Get game configuration dynamically
             const SYSTEM_FALLBACK_GAME_ID = DEFAULT_GAME_ID || Object.keys(GAME_REGISTRY)[0];
+
+            // Debug logging
+            console.log('[GamePage] Debug gameId detection:', {
+                roomDataGameId: roomData?.gameId,
+                metadataGameId: currentRoom?.metadata?.gameId,
+                fullMetadata: currentRoom?.metadata,
+                fallback: SYSTEM_FALLBACK_GAME_ID
+            });
+
             const gameId = roomData?.gameId || currentRoom?.metadata?.gameId || SYSTEM_FALLBACK_GAME_ID;
             const gameConfig = getGameConfig(gameId);
 
-            console.log(`Initializing game: ${gameId}`, gameConfig);
+            console.log(`[GamePage] Initializing game: ${gameId}`, gameConfig);
 
             const config = {
                 type: Phaser.AUTO,
