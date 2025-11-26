@@ -13,7 +13,7 @@ This guide covers deploying DDN Games to production.
 
 ### Client Production Config
 
-Create `client/.env.production`:
+Ensure your `client/.env` contains:
 
 ```env
 # Authentication Features
@@ -26,14 +26,22 @@ VITE_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
 VITE_FIREBASE_PROJECT_ID=your-project-id
 VITE_FIREBASE_APP_ID=your_production_app_id
 
-# Production Backend URLs
+# Backend URLs (update these for production)
+VITE_API_URL=https://api.yourdomain.com
+VITE_WS_URL=wss://api.yourdomain.com
+```
+
+**Optional**: Create `client/.env.production` to override just the URLs:
+
+```env
+# Production Backend URLs (overrides .env)
 VITE_API_URL=https://api.yourdomain.com
 VITE_WS_URL=wss://api.yourdomain.com
 ```
 
 ### Server Production Config
 
-Create `server/.env.production`:
+Ensure your `server/.env` contains:
 
 ```env
 # Authentication Features

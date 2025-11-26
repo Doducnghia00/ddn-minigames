@@ -54,7 +54,7 @@ const firebaseConfig = {
 
 ## Step 5: Configure Client
 
-Edit `client/.env.development`:
+Edit `client/.env`:
 
 ```env
 # Enable Google login
@@ -76,7 +76,7 @@ VITE_ENABLE_GUEST_LOGIN=true
 
 ## Step 6: Configure Server
 
-Edit `server/.env.development`:
+Edit `server/.env`:
 
 ```env
 # Enable Google login
@@ -113,24 +113,21 @@ ENABLE_GUEST_LOGIN=true
 
 ## Production Setup
 
-For production, create `client/.env.production` and `server/.env.production` with:
+For production, you have two options:
 
-- Same Firebase credentials
-- Production URLs (HTTPS and WSS)
-- `NODE_ENV=production`
+**Option A**: Update your `client/.env` with production URLs directly, or
 
-Example:
+**Option B**: Create `client/.env.production` to override just the URLs:
 
 ```env
 # client/.env.production
-VITE_ENABLE_GOOGLE_LOGIN=true
-VITE_FIREBASE_API_KEY=AIzaSyXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-VITE_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
-VITE_FIREBASE_PROJECT_ID=your-project-id
-VITE_FIREBASE_APP_ID=1:123456789:web:abcdef123456
 VITE_API_URL=https://api.yourdomain.com
 VITE_WS_URL=wss://api.yourdomain.com
 ```
+
+Your base `client/.env` should already have the Firebase credentials and other settings.
+
+For the server, ensure `server/.env` has `NODE_ENV=production` when deploying.
 
 ## Troubleshooting
 
@@ -138,7 +135,7 @@ VITE_WS_URL=wss://api.yourdomain.com
 
 - Check that all `VITE_FIREBASE_*` variables are set
 - Verify `VITE_ENABLE_GOOGLE_LOGIN=true`
-- Restart the dev server after changing `.env` files
+- Restart the dev server after changing `.env` or `.env.development`/`.env.production` files
 
 ### "Firebase Admin initialization failed"
 

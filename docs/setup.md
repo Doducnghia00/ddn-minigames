@@ -28,7 +28,7 @@ cd ..
 
 #### Client Environment
 
-Create `client/.env.development` file:
+Create `client/.env` file:
 
 ```env
 # Firebase Configuration
@@ -37,16 +37,22 @@ VITE_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
 VITE_FIREBASE_PROJECT_ID=your_project_id
 VITE_FIREBASE_APP_ID=your_app_id
 
-# Backend URLs (Development)
+# Backend URLs
 VITE_API_URL=http://localhost:2567
 VITE_WS_URL=ws://localhost:2567
 ```
 
 Get Firebase credentials from: Firebase Console → Project Settings → General → Your apps
 
+> **Optional**: If you need different URLs for development vs production, create:
+> - `client/.env.development` with `VITE_API_URL=http://localhost:2567` and `VITE_WS_URL=ws://localhost:2567`
+> - `client/.env.production` with `VITE_API_URL=https://your-production-api.com` and `VITE_WS_URL=wss://your-production-api.com`
+> 
+> These will override the base `.env` values when running `npm run dev` or `npm start`.
+
 #### Server Environment
 
-Create `server/.env.development` file:
+Create `server/.env` file:
 
 ```env
 # Google Cloud Service Account
@@ -105,20 +111,18 @@ Make sure you ran `npm install` in both client and server directories.
 
 For production deployment:
 
-1. Create production environment files with your production URLs:
+1. Update your `.env` files or create environment-specific overrides:
    
-   `client/.env.production`:
+   **Option A**: Update `client/.env` with production URLs, or
+   
+   **Option B**: Create `client/.env.production` to override URLs:
    ```env
-   # Firebase Configuration (same as development)
-   VITE_FIREBASE_API_KEY=your_firebase_api_key_here
-   # ... other Firebase vars ...
-   
    # Backend URLs (Production)
    VITE_API_URL=https://your-production-api.com
    VITE_WS_URL=wss://your-production-api.com
    ```
    
-   `server/.env.production`:
+   For server, update `server/.env` with:
    ```env
    GOOGLE_APPLICATION_CREDENTIALS=./credentials/serviceAccountKey.json
    PORT=2567

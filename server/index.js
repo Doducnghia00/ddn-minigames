@@ -3,10 +3,11 @@ const cors = require('cors');
 const http = require('http');
 const { Server, LobbyRoom } = require('colyseus');
 const { monitor } = require('@colyseus/monitor');
-const { Duel1v1Room } = require('./rooms/Duel1v1Room');
+const { Duel1v1Room } = require('./rooms/duel1v1/Duel1v1Room');
 const { CaroRoom } = require('./rooms/caro/CaroRoom');
 
-require('dotenv').config();
+const test = require('dotenv').config();
+console.log("test", test);
 
 const AUTH_CONFIG = require('./config/auth');
 const port = process.env.PORT || 2567;

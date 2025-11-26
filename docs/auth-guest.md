@@ -6,7 +6,7 @@ Guest login allows users to play without creating an account or signing in with 
 
 ### Client
 
-Edit `client/.env.development`:
+Create or edit `client/.env`:
 
 ```env
 # Enable guest login
@@ -22,7 +22,7 @@ VITE_WS_URL=ws://localhost:2567
 
 ### Server
 
-Edit `server/.env.development`:
+Create or edit `server/.env`:
 
 ```env
 # Enable guest login

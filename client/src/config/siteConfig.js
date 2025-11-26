@@ -20,8 +20,8 @@ export const SITE_CONFIG = {
 
     // Social Media Links
     social: {
-        facebook: '#',
-        twitter: '#',
+        facebook: 'https://www.facebook.com/DoDucNghia00',
+        twitter: 'https://x.com/Nghia292',
         github: 'https://github.com/Doducnghia00/ddn-minigames',
         discord: null, // Set to URL or null to hide
         youtube: null,

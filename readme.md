@@ -42,7 +42,7 @@ System of multiple HTML5 mini-games (Frontend: Phaser 3, Backend: Express + Coly
 
     #### Quick Start (Guest Login Only)
     
-    Create `client/.env.development`:
+    Create `client/.env`:
     
     ```env
     # Authentication Features
@@ -54,7 +54,7 @@ System of multiple HTML5 mini-games (Frontend: Phaser 3, Backend: Express + Coly
     VITE_WS_URL=ws://localhost:2567
     ```
     
-    Create `server/.env.development`:
+    Create `server/.env`:
     
     ```env
     # Authentication Features
@@ -70,7 +70,7 @@ System of multiple HTML5 mini-games (Frontend: Phaser 3, Backend: Express + Coly
     
     #### Full Setup (Both Authentication Methods)
     
-    Create `client/.env.development`:
+    Create `client/.env`:
     
     ```env
     # Authentication Features
@@ -88,7 +88,7 @@ System of multiple HTML5 mini-games (Frontend: Phaser 3, Backend: Express + Coly
     VITE_WS_URL=ws://localhost:2567
     ```
     
-    Create `server/.env.development`:
+    Create `server/.env`:
     
     ```env
     # Authentication Features
@@ -102,6 +102,15 @@ System of multiple HTML5 mini-games (Frontend: Phaser 3, Backend: Express + Coly
     PORT=2567
     NODE_ENV=development
     ```
+    
+    > [!TIP]
+    > **Custom URLs for Different Environments**
+    > 
+    > If you need different API URLs for development vs production, you can create:
+    > - `client/.env.development` with `VITE_API_URL=http://localhost:2567` and `VITE_WS_URL=ws://localhost:2567`
+    > - `client/.env.production` with `VITE_API_URL=https://your-production-api.com` and `VITE_WS_URL=wss://your-production-api.com`
+    > 
+    > These values will override the URLs in `.env` when running `npm run dev` or `npm start` respectively.
     
     **For Firebase setup**, see [docs/auth-firebase.md](docs/auth-firebase.md)
 
@@ -153,7 +162,7 @@ System of multiple HTML5 mini-games (Frontend: Phaser 3, Backend: Express + Coly
 
 ## Environment Variables Reference
 
-### Client (.env.development / .env.production)
+### Client (.env)
 
 | Variable | Description | Required | Example |
 |----------|-------------|----------|---------|
@@ -168,7 +177,9 @@ System of multiple HTML5 mini-games (Frontend: Phaser 3, Backend: Express + Coly
 
 *At least one authentication method must be enabled.
 
-### Server (.env.development / .env.production)
+**Optional Environment-Specific Overrides**: You can create `client/.env.development` and `client/.env.production` files to override `VITE_API_URL` and `VITE_WS_URL` for different environments. These values will take precedence over the base `.env` file when running `npm run dev` or `npm start`.
+
+### Server (.env)
 
 | Variable | Description | Required | Example |
 |----------|-------------|----------|---------|
