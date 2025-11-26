@@ -5,6 +5,7 @@ const { Server, LobbyRoom } = require('colyseus');
 const { monitor } = require('@colyseus/monitor');
 const { Duel1v1Room } = require('./rooms/duel1v1/Duel1v1Room');
 const { CaroRoom } = require('./rooms/caro/CaroRoom');
+const { TestFFARoom } = require('./rooms/test-ffa/TestFFARoom');
 
 const test = require('dotenv').config();
 console.log("test", test);
@@ -172,6 +173,8 @@ const gameServer = new Server({
 gameServer.define('lobby', LobbyRoom);
 gameServer.define('duel_1v1', Duel1v1Room);
 gameServer.define('caro', CaroRoom)
+    .enableRealtimeListing();
+gameServer.define('test-ffa', TestFFARoom)
     .enableRealtimeListing();
 
 // Add Colyseus monitor

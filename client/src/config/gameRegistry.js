@@ -12,6 +12,8 @@
 
 import { CaroScene } from '../games/caro/CaroScene';
 import { CARO_CONFIG } from '../games/caro/config';
+import { TestFFAScene } from '../games/test-ffa/TestFFAScene';
+import { TEST_FFA_CONFIG } from '../games/test-ffa/config';
 
 /**
  * Registry of all available games
@@ -35,6 +37,25 @@ export const GAME_REGISTRY = {
         },
         createRoomDefaults: (user) => ({
             roomName: `${user?.name || user?.email || 'Player'}'s Room`,
+            password: ''
+        })
+    },
+    'test-ffa': {
+        id: TEST_FFA_CONFIG.id,
+        name: TEST_FFA_CONFIG.name,
+        description: TEST_FFA_CONFIG.description,
+        scene: TestFFAScene,
+        scenes: [TestFFAScene],
+        phaserConfig: TEST_FFA_CONFIG.phaserConfig,
+        minPlayers: TEST_FFA_CONFIG.minPlayers,
+        maxPlayers: TEST_FFA_CONFIG.maxPlayers,
+        lobby: {
+            status: 'Test',
+            emoji: '🧪',
+            accent: 'blue'
+        },
+        createRoomDefaults: (user) => ({
+            roomName: `${user?.name || 'Player'}'s Test Room`,
             password: ''
         })
     }

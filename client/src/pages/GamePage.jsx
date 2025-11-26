@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import Phaser from 'phaser';
 import { useAuth } from '../context/AuthContext';
 import { useGame } from '../context/GameContext';
-import { getGameConfig } from '../config/gameRegistry';
+import { getGameConfig, GAME_REGISTRY, DEFAULT_GAME_ID } from '../config/gameRegistry';
 import { getMergedGameProfile } from '../config/gameProfiles';
 import PlayerCard from '../components/games/PlayerCard';
 import Modal from '../components/ui/Modal';

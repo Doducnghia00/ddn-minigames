@@ -1,59 +1,261 @@
 import { BaseGameScene } from './BaseGameScene';
 
 /**
- * FreeForAllGameScene
- *
- * Base class for large lobbies / FFA modes where each player has their own
- * score, rank or status. Mirroring the server-side FreeForAllRoom.
+ * FreeForAllGameScene - Base scene for FFA game modes
+ * 
+ * Provides:
+ * - Real-time score tracking
+ * - Match timer display
+ * - Leaderboard management
+ * - Player join/leave handling
+ * 
+ * Subclasses should override:
+ * - createGameUI(): Build game-specific UI
+ * - onPlayerAdded(): Handle new player visuals
+ * - onScoreChanged(): Update score displays
+ * - onTimerUpdate(): Update timer UI
  */
 export class FreeForAllGameScene extends BaseGameScene {
     constructor(sceneKey) {
         super(sceneKey);
-        this.playerScores = new Map(); // playerId -> score number
+
+        // FFA-specific state
+        this.playerScores = new Map();    // sessionId -> score
+        this.playerKills = new Map();     // sessionId -> kills
+        this.playerDeaths = new Map();    // sessionId -> deaths
+        this.matchTimer = 0;
+        this.scoreLimit = 0;
+        this.maxPlayers = 8;
     }
 
     init(data) {
         super.init(data);
+
+        // Clear FFA state
         this.playerScores.clear();
+        this.playerKills.clear();
+        this.playerDeaths.clear();
+        this.matchTimer = 0;
+        this.scoreLimit = 0;
     }
 
     /**
-     * Synchronize any score metadata coming from state.players.
-     * Looks for `score` or `kills` fields on player objects by convention.
+     * Setup room event listeners
+     * MUST call super.setRoom(room) first
      */
-    syncScoresFromState(statePlayers) {
-        if (!statePlayers) return;
+    setRoom(room) {
+        super.setRoom(room);
 
-        statePlayers.forEach((player, id) => {
-            if (typeof player.score === 'number') {
-                this.setPlayerScore(id, player.score);
-            } else if (typeof player.kills === 'number') {
-                this.setPlayerScore(id, player.kills);
-            }
+        if (!this.room) return;
+
+        this.setupRoomEvents();
+    }
+
+    /**
+     * Setup Colyseus state listeners
+     */
+    setupRoomEvents() {
+        if (!this.room || !this.room.state) return;
+
+        // Listen to match timer updates
+        this.room.state.listen('matchTimer', (value) => {
+            this.matchTimer = value;
+            this.onTimerUpdate(value);
+        });
+
+        // Listen to score limit
+        this.room.state.listen('scoreLimit', (value) => {
+            this.scoreLimit = value;
+        });
+
+        // Listen to max players
+        this.room.state.listen('maxPlayers', (value) => {
+            this.maxPlayers = value;
+        });
+
+        // Listen to game state changes
+        this.room.state.listen('gameState', (value) => {
+            this.gameState = value;
+            this.onGameStateChanged(value);
+        });
+
+        // Listen to winner
+        this.room.state.listen('winner', (value) => {
+            this.onWinnerDeclared(value);
+        });
+
+        // Listen to player additions
+        this.room.state.players.onAdd = (player, sessionId) => {
+            this.onPlayerAdded(player, sessionId);
+            this.setupPlayerListeners(player, sessionId);
+        };
+
+        // Listen to player removals
+        this.room.state.players.onRemove = (player, sessionId) => {
+            this.onPlayerRemoved(sessionId);
+            this.playerScores.delete(sessionId);
+            this.playerKills.delete(sessionId);
+            this.playerDeaths.delete(sessionId);
+        };
+
+        // Listen to match events
+        this.room.onMessage('match_started', (data) => {
+            this.onMatchStarted(data);
+        });
+
+        this.room.onMessage('match_ended', (data) => {
+            this.onMatchEnded(data);
         });
     }
 
-    setPlayerScore(playerId, value) {
-        this.playerScores.set(playerId, value);
-        this.handleScoreChanged(playerId, value);
+    /**
+     * Setup listeners for individual player changes
+     */
+    setupPlayerListeners(player, sessionId) {
+        // Listen to score changes
+        player.listen('score', (value) => {
+            this.playerScores.set(sessionId, value);
+            this.onScoreChanged(sessionId, value);
+        });
+
+        // Listen to kills
+        player.listen('kills', (value) => {
+            this.playerKills.set(sessionId, value);
+            this.onKillsChanged(sessionId, value);
+        });
+
+        // Listen to deaths
+        player.listen('deaths', (value) => {
+            this.playerDeaths.set(sessionId, value);
+            this.onDeathsChanged(sessionId, value);
+        });
     }
 
-    addPlayerScore(playerId, delta = 1) {
-        const current = this.playerScores.get(playerId) || 0;
-        this.setPlayerScore(playerId, current + delta);
+    // ========== Hooks for Subclasses ==========
+
+    /**
+     * Called when a player is added to the room
+     * Override to create player sprites, UI elements, etc.
+     */
+    onPlayerAdded(player, sessionId) {
+        // Subclass implements
     }
 
     /**
-     * Hook for subclasses to update HUD/leaderboard when a score changes
+     * Called when a player is removed from the room
+     * Override to destroy player sprites, UI elements, etc.
      */
-    handleScoreChanged() {
-        // override in concrete scene
+    onPlayerRemoved(sessionId) {
+        // Subclass implements
     }
 
+    /**
+     * Called when game state changes (waiting -> playing -> finished)
+     */
+    onGameStateChanged(newState) {
+        // Subclass implements
+    }
+
+    /**
+     * Called when a player's score changes
+     */
+    onScoreChanged(sessionId, newScore) {
+        // Subclass implements (update HUD, leaderboard, etc.)
+    }
+
+    /**
+     * Called when a player's kills change
+     */
+    onKillsChanged(sessionId, newKills) {
+        // Subclass implements
+    }
+
+    /**
+     * Called when a player's deaths change
+     */
+    onDeathsChanged(sessionId, newDeaths) {
+        // Subclass implements
+    }
+
+    /**
+     * Called every tick when match timer updates
+     */
+    onTimerUpdate(timeRemaining) {
+        // Subclass implements (update timer display)
+    }
+
+    /**
+     * Called when match starts
+     */
+    onMatchStarted(data) {
+        // Subclass implements
+    }
+
+    /**
+     * Called when match ends
+     */
+    onMatchEnded(data) {
+        // Subclass implements
+    }
+
+    /**
+     * Called when winner is declared
+     */
+    onWinnerDeclared(winnerId) {
+        // Subclass implements
+    }
+
+    // ========== Utility Methods ==========
+
+    /**
+     * Get sorted leaderboard
+     * @param {number} limit - Max number of entries
+     * @returns {Array} [[sessionId, score], ...]
+     */
     getLeaderboard(limit = 10) {
         return Array.from(this.playerScores.entries())
             .sort(([, a], [, b]) => b - a)
             .slice(0, limit);
     }
-}
 
+    /**
+     * Get player rank (1-indexed)
+     */
+    getPlayerRank(sessionId) {
+        const leaderboard = this.getLeaderboard();
+        const index = leaderboard.findIndex(([id]) => id === sessionId);
+        return index >= 0 ? index + 1 : -1;
+    }
+
+    /**
+     * Get current player's score
+     */
+    getMyScore() {
+        return this.playerScores.get(this.room?.sessionId) || 0;
+    }
+
+    /**
+     * Check if local player is winning
+     */
+    isWinning() {
+        const mySessionId = this.room?.sessionId;
+        if (!mySessionId) return false;
+
+        const myScore = this.playerScores.get(mySessionId) || 0;
+        for (const [id, score] of this.playerScores) {
+            if (id !== mySessionId && score > myScore) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Format time as MM:SS
+     */
+    formatTime(seconds) {
+        const mins = Math.floor(seconds / 60);
+        const secs = Math.floor(seconds % 60);
+        return `${mins}:${secs.toString().padStart(2, '0')}`;
+    }
+}
