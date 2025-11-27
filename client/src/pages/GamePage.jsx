@@ -66,13 +66,13 @@ const GamePage = () => {
             // Get game configuration dynamically
             const SYSTEM_FALLBACK_GAME_ID = DEFAULT_GAME_ID || Object.keys(GAME_REGISTRY)[0];
 
-            // Debug logging
-            console.log('[GamePage] Debug gameId detection:', {
-                roomDataGameId: roomData?.gameId,
-                metadataGameId: currentRoom?.metadata?.gameId,
-                fullMetadata: currentRoom?.metadata,
-                fallback: SYSTEM_FALLBACK_GAME_ID
-            });
+            // // Debug logging
+            // console.log('[GamePage] Debug gameId detection:', {
+            //     roomDataGameId: roomData?.gameId,
+            //     metadataGameId: currentRoom?.metadata?.gameId,
+            //     fullMetadata: currentRoom?.metadata,
+            //     fallback: SYSTEM_FALLBACK_GAME_ID
+            // });
 
             const gameId = roomData?.gameId || currentRoom?.metadata?.gameId || SYSTEM_FALLBACK_GAME_ID;
             const gameConfig = getGameConfig(gameId);
@@ -133,7 +133,7 @@ const GamePage = () => {
 
         // Helper function to sync state to React
         const syncStateToReact = (state) => {
-            console.log('[GamePage] Syncing state - players in state:', state.players.size);
+            // console.log('[GamePage] Syncing state - players in state:', state.players.size);
 
             const playerMap = new Map();
             state.players.forEach((player, id) => {
@@ -147,7 +147,7 @@ const GamePage = () => {
                 });
             });
 
-            console.log('[GamePage] Setting players Map size:', playerMap.size);
+            // console.log('[GamePage] Setting players Map size:', playerMap.size);
             setPlayers(playerMap);
             setRoomOwner(state.roomOwner);
             setCurrentTurn(isTurnBased ? (state.currentTurn || null) : null);
@@ -162,7 +162,7 @@ const GamePage = () => {
         // CRITICAL FIX: Sync initial state immediately to avoid race condition
         // onStateChange only fires on CHANGES, not on initial state
         if (currentRoom.state) {
-            console.log('[GamePage] Syncing initial state immediately');
+            // console.log('[GamePage] Syncing initial state immediately');
             syncStateToReact(currentRoom.state);
         }
 
@@ -174,7 +174,7 @@ const GamePage = () => {
         return () => {
             clearTimeout(timeoutId);
             if (phaserGameRef.current) {
-                console.log("Destroying Phaser game instance");
+                // console.log("Destroying Phaser game instance");
 
                 // Clean up DOM elements before destroying Phaser
                 const scene = phaserGameRef.current.scene.scenes[0];
@@ -233,7 +233,6 @@ const GamePage = () => {
     const canStartMatch = currentRoom?.sessionId === roomOwner && gameState !== 'playing' && everyoneReady;
     const canKickPlayers = allowKicks && currentRoom?.sessionId === roomOwner;
 
-    console.log("players", players);
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 py-8">

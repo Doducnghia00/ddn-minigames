@@ -2,6 +2,7 @@ const { FreeForAllRoom } = require('../base/modes/FreeForAllRoom');
 const { ShooterState } = require('./ShooterState');
 const { ShooterPlayer } = require('./ShooterPlayer');
 const { Bullet } = require('./Bullet');
+const { SHOOTER_CONFIG } = require('./shooter-config');
 
 /**
  * ShooterRoom - Top-down Arena Shooter
@@ -19,17 +20,16 @@ class ShooterRoom extends FreeForAllRoom {
         // Set custom options BEFORE calling super to override defaults
         const shooterOptions = {
             ...options,
-            scoreLimit: options.scoreLimit || 3,      // DEBUG: 3 kills to win
-            matchDuration: options.matchDuration || 120  // DEBUG: 2 minutes
+            scoreLimit: options.scoreLimit || SHOOTER_CONFIG.match.scoreLimit,
+            matchDuration: options.matchDuration || SHOOTER_CONFIG.match.matchDuration
         };
 
         super.onCreate(shooterOptions);
 
         this.nextBulletId = 0;
 
-        // Increase state sync rate for smoother timer updates
-        // Default is 50ms (20 FPS), we want 16.67ms (60 FPS) for accurate timer
-        this.setPatchRate(16.67); // 60 FPS sync rate
+        // Increase state sync rate for smoother updates
+        this.setPatchRate(SHOOTER_CONFIG.match.patchRate);
 
         // Register shooter-specific message handlers
         this.onMessage('move', (client, data) => {
@@ -71,11 +71,11 @@ class ShooterRoom extends FreeForAllRoom {
     }
 
     getMinPlayers() {
-        return 2;
+        return SHOOTER_CONFIG.match.minPlayers;
     }
 
     getMaxClients() {
-        return 8;
+        return SHOOTER_CONFIG.match.maxPlayers;
     }
 
     createInitialState(options) {
@@ -264,7 +264,7 @@ class ShooterRoom extends FreeForAllRoom {
             player.y += player.velocityY * deltaTime;
 
             // Boundary checking (keep players inside arena)
-            const padding = 20; // Player hitbox radius
+            const padding = SHOOTER_CONFIG.player.hitboxRadius;
             player.x = Math.max(padding, Math.min(this.state.arenaWidth - padding, player.x));
             player.y = Math.max(padding, Math.min(this.state.arenaHeight - padding, player.y));
         }
@@ -297,7 +297,7 @@ class ShooterRoom extends FreeForAllRoom {
                 const dx = bullet.x - player.x;
                 const dy = bullet.y - player.y;
                 const distance = Math.sqrt(dx * dx + dy * dy);
-                const hitRadius = 20; // Player hitbox radius
+                const hitRadius = SHOOTER_CONFIG.player.hitboxRadius;
 
                 if (distance < hitRadius) {
                     // Hit detected!

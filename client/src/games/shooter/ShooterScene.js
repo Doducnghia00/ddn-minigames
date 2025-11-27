@@ -207,7 +207,9 @@ export class ShooterScene extends FreeForAllGameScene {
         // Leaderboard entries - only top 3 for compact display
         this.leaderboardEntries = [];
         for (let i = 0; i < 3; i++) {
-            const entry = this.add.text(width - 210, 50 + i * 20, '', {
+            // Panel left edge: (width-20) - 200 = width-220
+            // Add 10px padding from left edge
+            const entry = this.add.text(width - 210, 50 + i * 18, '', {
                 fontSize: '11px',
                 color: '#ffffff',
                 fontFamily: 'monospace'
@@ -479,7 +481,7 @@ export class ShooterScene extends FreeForAllGameScene {
     }
 
     /**
-     * Setup player state listeners for visual effects
+     * Setup player state listeners for visual effects and UI updates
      */
     setupPlayerListeners(player, sessionId) {
         // Listen to health changes - detect damage
@@ -499,6 +501,16 @@ export class ShooterScene extends FreeForAllGameScene {
                 // Just respawned
                 this.showRespawnAnimation(sessionId);
             }
+        });
+
+        // Listen to score changes - update leaderboard
+        player.listen('score', (value) => {
+            this.onScoreChanged(sessionId, value);
+        });
+
+        // Listen to kills changes - update leaderboard
+        player.listen('kills', (value) => {
+            this.onKillsChanged(sessionId, value);
         });
     }
 
@@ -1011,8 +1023,10 @@ export class ShooterScene extends FreeForAllGameScene {
         // Sort by score
         players.sort((a, b) => b.score - a.score);
 
-        // Update leaderboard entries - only top 3
-        players.slice(0, 3).forEach((player, index) => {
+        // Always show top 3 players (even if score is 0)
+        const topPlayers = players.slice(0, 3);
+        
+        topPlayers.forEach((player, index) => {
             const entry = this.leaderboardEntries[index];
             if (!entry) return;
 
@@ -1026,8 +1040,8 @@ export class ShooterScene extends FreeForAllGameScene {
             entry.setVisible(true);
         });
 
-        // Hide unused entries
-        for (let i = players.length; i < 3; i++) {
+        // Hide remaining entries if less than 3 players
+        for (let i = topPlayers.length; i < 3; i++) {
             if (this.leaderboardEntries[i]) {
                 this.leaderboardEntries[i].setVisible(false);
             }

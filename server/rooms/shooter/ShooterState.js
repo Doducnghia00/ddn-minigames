@@ -1,6 +1,7 @@
 const { ArraySchema, type } = require('@colyseus/schema');
 const { FreeForAllRoomState } = require('../base/states/FreeForAllRoomState');
 const { Bullet } = require('./Bullet');
+const { SHOOTER_CONFIG } = require('./shooter-config');
 
 /**
  * ShooterState - State for Arena Shooter game
@@ -31,14 +32,14 @@ class ShooterState extends FreeForAllRoomState {
         this.bullets = new ArraySchema();
 
         // Arena configuration
-        this.arenaWidth = 800;
-        this.arenaHeight = 600;
+        this.arenaWidth = SHOOTER_CONFIG.arena.width;
+        this.arenaHeight = SHOOTER_CONFIG.arena.height;
 
-        // Game configuration (can be customized per room)
-        this.bulletSpeed = 400;         // Pixels per second
-        this.playerSpeed = 200;         // Pixels per second
-        this.fireRate = 300;            // Milliseconds between shots
-        this.respawnDelay = 3;          // Seconds before respawn
+        // Game configuration (loaded from config)
+        this.bulletSpeed = SHOOTER_CONFIG.weapon.bulletSpeed;
+        this.playerSpeed = SHOOTER_CONFIG.player.moveSpeed;
+        this.fireRate = SHOOTER_CONFIG.weapon.fireRate;
+        this.respawnDelay = SHOOTER_CONFIG.player.respawnDelay;
     }
 }
 

@@ -1,4 +1,5 @@
 const { Schema, type } = require('@colyseus/schema');
+const { SHOOTER_CONFIG } = require('./shooter-config');
 
 /**
  * Bullet - Projectile schema for Shooter game
@@ -14,8 +15,8 @@ class Bullet extends Schema {
         this.velocityY = 0;     // Y velocity (pixels/second)
         this.rotation = 0;      // Visual rotation (radians)
         this.ownerId = '';      // Session ID of player who fired
-        this.damage = 20;       // Damage dealt on hit
-        this.lifetime = 3;      // Max lifetime in seconds
+        this.damage = SHOOTER_CONFIG.weapon.bulletDamage;
+        this.lifetime = SHOOTER_CONFIG.weapon.bulletLifetime;
         this.createdAt = 0;     // Server timestamp (seconds)
     }
 }

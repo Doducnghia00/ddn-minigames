@@ -1,5 +1,6 @@
 const { FFAPlayer } = require('../base/players/FreeForAllPlayer');
 const { type } = require('@colyseus/schema');
+const { SHOOTER_CONFIG } = require('./shooter-config');
 
 /**
  * ShooterPlayer - Player schema for Arena Shooter game
@@ -27,8 +28,8 @@ class ShooterPlayer extends FFAPlayer {
         this.rotation = 0;  // Radians, direction player is facing/aiming
 
         // Combat
-        this.health = 100;
-        this.maxHealth = 100;
+        this.health = SHOOTER_CONFIG.player.startHealth;
+        this.maxHealth = SHOOTER_CONFIG.player.maxHealth;
         this.isAlive = true;
 
         // Weapon
