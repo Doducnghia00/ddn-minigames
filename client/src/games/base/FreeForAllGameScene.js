@@ -80,6 +80,10 @@ export class FreeForAllGameScene extends BaseGameScene {
         // Listen to score limit
         this.room.state.listen('scoreLimit', (value) => {
             this.scoreLimit = value;
+            // Notify subclass that state has been synced
+            if (this.onStateSync) {
+                this.onStateSync();
+            }
         });
 
         // Listen to max players

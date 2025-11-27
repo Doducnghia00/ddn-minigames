@@ -20,6 +20,13 @@ import {
     CaroExtraInfo 
 } from '../components/games/caro/CaroPlayerBadges';
 
+// Shooter components
+import {
+    ShooterRoleBadge,
+    ShooterStatusBadge,
+    ShooterExtraInfo
+} from '../components/games/shooter/ShooterPlayerBadges';
+
 export const DEFAULT_GAME_PROFILE = {
     minPlayers: 2,
     readyLabel: '✋ Ready',
@@ -60,17 +67,48 @@ export const GAME_PROFILES = {
             ExtraInfo: CaroExtraInfo
         }
     },
-    // Example for another game:
-    // tictactoe: {
-    //     minPlayers: 2,
-    //     readyLabel: '✋ Ready to play Tic Tac Toe',
-    //     statusTexts: { ... },
-    //     components: {
-    //         RoleBadge: TicTacToeRoleBadge,
-    //         StatusBadge: TicTacToeStatusBadge,
-    //         ExtraInfo: null
-    //     }
-    // }
+    
+    // Shooter - Arena FFA shooter game
+    shooter: {
+        minPlayers: 2,
+        readyLabel: '⚔️ Ready for Battle',
+        statusTexts: {
+            waiting: '⏳ Preparing for arena combat...',
+            playing: '🔫 Arena battle in progress',
+            finished: '🏁 Match finished - Ready for rematch'
+        },
+        behaviors: {
+            turnBased: false,        // Real-time game
+            readyStrategy: 'allPlayers',
+            allowKicks: true
+        },
+        components: {
+            RoleBadge: ShooterRoleBadge,
+            StatusBadge: ShooterStatusBadge,
+            ExtraInfo: ShooterExtraInfo
+        }
+    },
+    
+    // Test FFA - reuse shooter components
+    'test-ffa': {
+        minPlayers: 2,
+        readyLabel: '🧪 Ready for Test',
+        statusTexts: {
+            waiting: '⏳ Waiting for players...',
+            playing: '🧪 Test match in progress',
+            finished: '🏁 Test finished'
+        },
+        behaviors: {
+            turnBased: false,
+            readyStrategy: 'allPlayers',
+            allowKicks: true
+        },
+        components: {
+            RoleBadge: ShooterRoleBadge,
+            StatusBadge: ShooterStatusBadge,
+            ExtraInfo: ShooterExtraInfo
+        }
+    }
 };
 
 /**

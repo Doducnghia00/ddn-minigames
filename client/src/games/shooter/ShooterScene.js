@@ -33,6 +33,7 @@ export class ShooterScene extends FreeForAllGameScene {
         this.createArena();
         this.setupInput();
         this.createHUD();
+        this.createKillFeed();
     }
 
     /**
@@ -43,14 +44,13 @@ export class ShooterScene extends FreeForAllGameScene {
 
         // Listen to kill events
         this.room.onMessage('player_killed', (data) => {
-            console.log('[ShooterScene] Player killed:', data.victimName, 'by', data.killerName);
-            // Future: show kill feed notification
+            console.log('[ShooterScene] Player killed:', data);
+            this.showKillNotification(data);
         });
 
         // Listen to respawn events
         this.room.onMessage('player_respawned', (data) => {
             console.log('[ShooterScene] Player respawned:', data.playerName);
-            // Future: show respawn notification
         });
     }
 
@@ -110,39 +110,248 @@ export class ShooterScene extends FreeForAllGameScene {
     }
 
     /**
-     * Create HUD elements
+     * Create HUD elements with enhanced styling
      */
     createHUD() {
-        // Timer display (top center)
-        this.timerText = this.add.text(400, 20, 'Time: --:--', {
-            fontSize: '24px',
+        const centerX = this.cameras.main.width / 2;
+        const width = this.cameras.main.width;
+        const height = this.cameras.main.height;
+
+        // ====== TOP CENTER: TIMER + SCORE LIMIT ======
+        
+        // Timer text with icon (no background panel - cleaner look)
+        // Centered both horizontally and vertically for alignment
+        this.timerIcon = this.add.text(centerX - 50, 32, '⏱️', {
+            fontSize: '20px'
+        }).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(101);
+
+        this.timerText = this.add.text(centerX, 32, '--:--', {
+            fontSize: '22px',
             color: '#00ff88',
-            fontStyle: 'bold'
-        }).setOrigin(0.5).setScrollFactor(0);
+            fontStyle: 'bold',
+            fontFamily: 'monospace',
+            stroke: '#000000',
+            strokeThickness: 3
+        }).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(101);
 
-        // My health bar (bottom left)
-        this.myHealthBarBg = this.add.rectangle(100, 580, 200, 20, 0x333333)
-            .setOrigin(0, 0.5).setScrollFactor(0);
-        this.myHealthBar = this.add.rectangle(100, 580, 200, 20, 0x00ff00)
-            .setOrigin(0, 0.5).setScrollFactor(0);
-
-        this.myHealthText = this.add.text(200, 580, '100/100', {
+        // Score limit below timer (First to X)
+        this.scoreLimitText = this.add.text(centerX, 55, '🎯 First to: 0', {
             fontSize: '14px',
-            color: '#ffffff'
-        }).setOrigin(0.5).setScrollFactor(0);
+            color: '#ffaa00',
+            fontStyle: 'bold',
+            stroke: '#000000',
+            strokeThickness: 2
+        }).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(101);
 
-        // K/D stats (bottom right)
-        this.kdText = this.add.text(700, 580, 'K: 0  D: 0', {
-            fontSize: '16px',
-            color: '#ffffff'
-        }).setOrigin(0.5).setScrollFactor(0);
+        // ====== TOP LEFT: PLAYER HEALTH + K/D ======
+        
+        // Health panel background
+        const healthPanelBg = this.add.rectangle(20, 20, 250, 90, 0x1a1a2e, 0.95)
+            .setOrigin(0, 0).setScrollFactor(0).setDepth(100);
+        
+        const healthPanelBorder = this.add.rectangle(20, 20, 250, 90)
+            .setOrigin(0, 0).setScrollFactor(0).setDepth(100)
+            .setStrokeStyle(2, 0x00ff88, 0.5);
 
-        // Leaderboard (top right)
-        this.leaderboardText = this.add.text(750, 50, '', {
+        // Health label
+        this.add.text(30, 30, '❤️ HEALTH', {
+            fontSize: '12px',
+            color: '#888888',
+            fontStyle: 'bold'
+        }).setOrigin(0, 0).setScrollFactor(0).setDepth(101);
+
+        // Health bar background
+        this.myHealthBarBg = this.add.rectangle(30, 55, 200, 16, 0x333333)
+            .setOrigin(0, 0).setScrollFactor(0).setDepth(101);
+        
+        // Health bar border
+        this.add.rectangle(30, 55, 200, 16)
+            .setOrigin(0, 0).setScrollFactor(0).setDepth(101)
+            .setStrokeStyle(2, 0x666666);
+
+        // Health bar fill
+        this.myHealthBar = this.add.rectangle(32, 57, 196, 12, 0x00ff00)
+            .setOrigin(0, 0).setScrollFactor(0).setDepth(102);
+
+        // Health text (100/100)
+        this.myHealthText = this.add.text(130, 63, '100/100', {
             fontSize: '12px',
             color: '#ffffff',
-            align: 'right'
-        }).setOrigin(1, 0).setScrollFactor(0);
+            fontStyle: 'bold'
+        }).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(103);
+
+        // K/D stats
+        this.kdText = this.add.text(30, 82, '⚔️ 0  💀 0', {
+            fontSize: '14px',
+            color: '#ffffff',
+            fontStyle: 'bold'
+        }).setOrigin(0, 0).setScrollFactor(0).setDepth(101);
+
+        // ====== TOP RIGHT: LEADERBOARD ======
+        
+        // Leaderboard background (same height as health panel for balance)
+        const leaderboardBg = this.add.rectangle(width - 20, 20, 200, 90, 0x1a1a2e, 0.95)
+            .setOrigin(1, 0).setScrollFactor(0).setDepth(100);
+        
+        const leaderboardBorder = this.add.rectangle(width - 20, 20, 200, 90)
+            .setOrigin(1, 0).setScrollFactor(0).setDepth(100)
+            .setStrokeStyle(2, 0x00ff88, 0.5);
+
+        // Leaderboard title
+        this.add.text(width - 110, 30, '🏆 TOP 3', {
+            fontSize: '11px',
+            color: '#00ff88',
+            fontStyle: 'bold'
+        }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(101);
+
+        // Leaderboard entries - only top 3 for compact display
+        this.leaderboardEntries = [];
+        for (let i = 0; i < 3; i++) {
+            const entry = this.add.text(width - 210, 50 + i * 20, '', {
+                fontSize: '11px',
+                color: '#ffffff',
+                fontFamily: 'monospace'
+            }).setOrigin(0, 0).setScrollFactor(0).setDepth(101);
+            
+            this.leaderboardEntries.push(entry);
+        }
+
+        // ====== CENTER: CROSSHAIR (dynamic - follows mouse) ======
+        
+        this.crosshair = this.add.graphics();
+        this.crosshair.setDepth(1000).setScrollFactor(0);
+
+        // ====== BOTTOM CENTER: RESPAWN MESSAGE (hidden by default) ======
+        
+        this.respawnMessageBg = this.add.rectangle(centerX, height - 100, 400, 50, 0x8b0000, 0.95)
+            .setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(200).setVisible(false);
+        
+        this.respawnMessageBorder = this.add.rectangle(centerX, height - 100, 400, 50)
+            .setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(200)
+            .setStrokeStyle(3, 0xff0000).setVisible(false);
+        
+        this.respawnMessage = this.add.text(centerX, height - 100, '💀 ELIMINATED - Respawning...', {
+            fontSize: '18px',
+            color: '#ffcccc',
+            fontStyle: 'bold'
+        }).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(201).setVisible(false);
+    }
+
+    /**
+     * Create kill feed container
+     */
+    createKillFeed() {
+        this.killFeedEntries = []; // Array of kill notifications
+        this.maxKillFeedEntries = 5;
+    }
+
+    /**
+     * Show kill notification with animation
+     */
+    showKillNotification(data) {
+        const { victimName, killerName, victim: victimId, killer: killerId } = data;
+        const isSuicide = victimId === killerId;
+        
+        const width = this.cameras.main.width;
+        const baseY = 120; // Below leaderboard (leaderboard ends at 110)
+        
+        // Calculate Y position (stack from top)
+        const yPos = baseY + this.killFeedEntries.length * 30;
+        
+        // Create text (no background panel - cleaner look)
+        let message;
+        if (isSuicide) {
+            message = `${victimName} 💀 eliminated themselves`;
+        } else {
+            message = `${killerName} ⚔️ ${victimName}`;
+        }
+
+        const text = this.add.text(width - 30, yPos, message, {
+            fontSize: '13px',
+            color: '#ffcccc',
+            fontStyle: 'bold',
+            stroke: '#8b0000',
+            strokeThickness: 3
+        }).setOrigin(1, 0).setScrollFactor(0).setDepth(151);
+
+        // Store entry
+        const entry = {
+            text,
+            createdAt: Date.now()
+        };
+        
+        this.killFeedEntries.push(entry);
+
+        // Slide-in animation
+        text.setX(width + 50);
+        
+        this.tweens.add({
+            targets: text,
+            x: width - 30,
+            duration: 300,
+            ease: 'Back.easeOut'
+        });
+
+        // Auto-remove after 5 seconds
+        this.time.delayedCall(5000, () => {
+            this.removeKillNotification(entry);
+        });
+
+        // Remove oldest if > max
+        if (this.killFeedEntries.length > this.maxKillFeedEntries) {
+            const oldest = this.killFeedEntries.shift();
+            this.removeKillNotification(oldest);
+        }
+    }
+
+    /**
+     * Remove kill notification with fade animation
+     */
+    removeKillNotification(entry) {
+        if (!entry) return;
+
+        // Check if already removed
+        if (!entry.text || !entry.text.scene) return;
+
+        // Fade out animation
+        this.tweens.add({
+            targets: entry.text,
+            alpha: 0,
+            duration: 200,
+            onComplete: () => {
+                // Safely destroy if still exists
+                if (entry.text && entry.text.destroy) entry.text.destroy();
+                
+                // Remove from array
+                const index = this.killFeedEntries.indexOf(entry);
+                if (index > -1) {
+                    this.killFeedEntries.splice(index, 1);
+                }
+                
+                // Reposition remaining entries
+                this.repositionKillFeed();
+            }
+        });
+    }
+
+    /**
+     * Reposition kill feed entries after removal
+     */
+    repositionKillFeed() {
+        const baseY = 120;
+        
+        this.killFeedEntries.forEach((entry, index) => {
+            if (!entry.text || !entry.text.scene) return;
+            
+            const targetY = baseY + index * 30;
+            
+            this.tweens.add({
+                targets: entry.text,
+                y: targetY,
+                duration: 200,
+                ease: 'Sine.easeOut'
+            });
+        });
     }
 
     /**
@@ -153,6 +362,7 @@ export class ShooterScene extends FreeForAllGameScene {
         this.updatePlayerSprites();
         this.updateBulletSprites();
         this.updateHUD();
+        this.updateCrosshair();
     }
 
     /**
@@ -218,6 +428,9 @@ export class ShooterScene extends FreeForAllGameScene {
         );
 
         this.room.send('shoot', { rotation });
+        
+        // Show muzzle flash effect
+        this.showMuzzleFlash(myPlayer.x, myPlayer.y, rotation);
     }
 
     // ========== FFA Scene Hooks ==========
@@ -260,6 +473,33 @@ export class ShooterScene extends FreeForAllGameScene {
             healthBarBg,
             healthBar
         });
+
+        // Setup listeners for visual effects
+        this.setupPlayerListeners(player, sessionId);
+    }
+
+    /**
+     * Setup player state listeners for visual effects
+     */
+    setupPlayerListeners(player, sessionId) {
+        // Listen to health changes - detect damage
+        player.listen('health', (value, prevValue) => {
+            if (value < prevValue) {
+                // Took damage
+                this.flashDamage(sessionId);
+            }
+        });
+
+        // Listen to isAlive changes - detect death/respawn
+        player.listen('isAlive', (value, prevValue) => {
+            if (!value && prevValue) {
+                // Just died
+                this.showDeathAnimation(sessionId);
+            } else if (value && !prevValue) {
+                // Just respawned
+                this.showRespawnAnimation(sessionId);
+            }
+        });
     }
 
     onPlayerRemoved(sessionId) {
@@ -279,18 +519,42 @@ export class ShooterScene extends FreeForAllGameScene {
     onGameStateChanged(newState, oldState) {
         // console.log('[ShooterScene] Game state:', newState);
         this.gameState = newState;
+        
+        // Hide end-game scoreboard when game restarts
+        if (newState === 'playing' && this.endGameUI) {
+            this.hideEndGameScreen();
+        }
+        
+        // Manage cursor visibility based on game state
+        if (newState === 'playing') {
+            // Hide system cursor when playing - use crosshair only
+            this.input.setDefaultCursor('none');
+        } else {
+            // Show system cursor when not playing (waiting/finished) - need it for buttons
+            this.input.setDefaultCursor('default');
+        }
     }
 
     onTimerUpdate(timeRemaining) {
-        if (this.timerText) {
-            this.timerText.setText(`Time: ${this.formatTime(timeRemaining)}`);
-
-            // Warning color when < 10 seconds
-            if (timeRemaining < 10) {
-                this.timerText.setColor('#ff0000');
-            } else {
-                this.timerText.setColor('#00ff88');
-            }
+        if (!this.timerText) return;
+        
+        const formatted = this.formatTime(timeRemaining);
+        this.timerText.setText(formatted);
+        
+        // Warning color khi < 10s
+        if (timeRemaining < 10) {
+            this.timerText.setColor('#ff0000');
+            this.timerIcon.setText('⚠️');
+            
+            // Pulse effect
+            const scale = 1 + Math.sin(Date.now() / 100) * 0.1;
+            this.timerText.setScale(scale);
+            this.timerIcon.setScale(scale);
+        } else {
+            this.timerText.setColor('#00ff88');
+            this.timerIcon.setText('⏱️');
+            this.timerText.setScale(1);
+            this.timerIcon.setScale(1);
         }
     }
 
@@ -300,6 +564,12 @@ export class ShooterScene extends FreeForAllGameScene {
 
     onKillsChanged(sessionId, newKills) {
         this.updateLeaderboard();
+    }
+
+    onStateSync() {
+        if (this.room && this.room.state && this.scoreLimitText) {
+            this.scoreLimitText.setText(`🎯 First to: ${this.room.state.scoreLimit || 0}`);
+        }
     }
 
     onMatchEnded(data) {
@@ -316,89 +586,204 @@ export class ShooterScene extends FreeForAllGameScene {
     }
 
     /**
-     * Display end-game overlay with results
+     * Display enhanced end-game overlay with detailed scoreboard
      */
     showEndGameScreen(data) {
         const isWinner = data.winner === this.room.sessionId;
         const centerX = this.cameras.main.width / 2;
         const centerY = this.cameras.main.height / 2;
 
-        // Nếu đã có overlay rồi thì dọn trước
+        // Clear existing if any
         if (this.endGameUI) {
             this.hideEndGameScreen();
         }
 
-        // Semi-transparent overlay
-        const overlay = this.add.rectangle(centerX, centerY, 800, 600, 0x000000, 0.85);
-        overlay.setDepth(1000);
-        overlay.setScrollFactor(0);
+        // Semi-transparent dark overlay
+        const overlay = this.add.rectangle(centerX, centerY, 800, 600, 0x000000, 0.90);
+        overlay.setDepth(1000).setScrollFactor(0);
 
-        // Victory/Defeat title
+        // Main panel background
+        const panelBg = this.add.rectangle(centerX, centerY, 600, 500, 0x1a1a2e, 0.98);
+        panelBg.setDepth(1001).setScrollFactor(0);
+        
+        const panelBorder = this.add.rectangle(centerX, centerY, 600, 500);
+        panelBorder.setDepth(1001).setScrollFactor(0);
+        panelBorder.setStrokeStyle(4, isWinner ? 0xFFD700 : 0x666666);
+
+        // ====== TITLE ======
+        
         const titleText = isWinner ? '🏆 VICTORY! 🏆' : '💀 DEFEAT 💀';
         const titleColor = isWinner ? '#FFD700' : '#FF4444';
 
-        const title = this.add.text(centerX, centerY - 180, titleText, {
+        const title = this.add.text(centerX, centerY - 200, titleText, {
             fontSize: '48px',
             fontStyle: 'bold',
             color: titleColor,
             stroke: '#000000',
             strokeThickness: 6
-        }).setOrigin(0.5).setDepth(1001).setScrollFactor(0);
+        }).setOrigin(0.5).setDepth(1002).setScrollFactor(0);
 
-        // Winner announcement
-        const winnerText = this.add.text(centerX, centerY - 120,
-            `Winner: ${data.winnerName}`, {
-            fontSize: '28px',
-            color: '#FFFFFF',
-            fontStyle: 'bold'
-        }).setOrigin(0.5).setDepth(1001).setScrollFactor(0);
-
-        const scoreText = this.add.text(centerX, centerY - 85,
-            `Score: ${data.winnerScore} kills`, {
-            fontSize: '20px',
-            color: '#00ff88'
-        }).setOrigin(0.5).setDepth(1001).setScrollFactor(0);
-
-        // Final Leaderboard
-        const leaderboardTitle = this.add.text(centerX, centerY - 40,
-            '📊 FINAL STANDINGS', {
-            fontSize: '24px',
-            color: '#00ff88',
-            fontStyle: 'bold'
-        }).setOrigin(0.5).setDepth(1001).setScrollFactor(0);
-
-        // Display top players
-        const leaderboardEntries = [];
-        let yOffset = centerY + 10;
-        data.finalScores.slice(0, 5).forEach((playerData, index) => {
-            const rank = index + 1;
-            const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `${rank}.`;
-            const isMe = playerData.sessionId === this.room.sessionId;
-            const nameDisplay = isMe ? `${playerData.name} (You)` : playerData.name;
-            const color = isMe ? '#FFD700' : '#FFFFFF';
-
-            const entryText = this.add.text(centerX, yOffset,
-                `${medal} ${nameDisplay}: ${playerData.kills} kills`, {
-                fontSize: '18px',
-                color: color,
-                fontStyle: isMe ? 'bold' : 'normal'
-            }).setOrigin(0.5).setDepth(1001).setScrollFactor(0);
-
-            leaderboardEntries.push(entryText);
-            yOffset += 30;
+        // Pulse animation for title
+        this.tweens.add({
+            targets: title,
+            scale: 1.1,
+            duration: 500,
+            yoyo: true,
+            repeat: -1,
+            ease: 'Sine.easeInOut'
         });
 
-        // Close button
-        const buttonBg = this.add.rectangle(centerX, centerY + 200, 250, 50, 0x00ff88);
-        buttonBg.setDepth(1001).setScrollFactor(0);
-        buttonBg.setInteractive({ useHandCursor: true });
-
-        const buttonText = this.add.text(centerX, centerY + 200,
-            'Close', {
-            fontSize: '20px',
-            color: '#000000',
+        // ====== WINNER INFO ======
+        
+        const winnerText = this.add.text(centerX, centerY - 140,
+            `Winner: ${data.winnerName}`, {
+            fontSize: '24px',
+            color: '#FFFFFF',
             fontStyle: 'bold'
         }).setOrigin(0.5).setDepth(1002).setScrollFactor(0);
+
+        const winnerScoreText = this.add.text(centerX, centerY - 110,
+            `Final Score: ${data.winnerScore} kills`, {
+            fontSize: '18px',
+            color: '#00ff88'
+        }).setOrigin(0.5).setDepth(1002).setScrollFactor(0);
+
+        // ====== SCOREBOARD HEADER ======
+        
+        const scoreboardTitle = this.add.text(centerX, centerY - 60,
+            '📊 FINAL STANDINGS', {
+            fontSize: '20px',
+            color: '#00ff88',
+            fontStyle: 'bold'
+        }).setOrigin(0.5).setDepth(1002).setScrollFactor(0);
+
+        // Scoreboard header background
+        const headerBg = this.add.rectangle(centerX, centerY - 20, 550, 30, 0x2a2a3e);
+        headerBg.setDepth(1002).setScrollFactor(0);
+
+        // Column headers
+        const headerRank = this.add.text(centerX - 240, centerY - 20, 'RANK', {
+            fontSize: '12px',
+            color: '#888888',
+            fontStyle: 'bold'
+        }).setOrigin(0, 0.5).setDepth(1003).setScrollFactor(0);
+
+        const headerPlayer = this.add.text(centerX - 170, centerY - 20, 'PLAYER', {
+            fontSize: '12px',
+            color: '#888888',
+            fontStyle: 'bold'
+        }).setOrigin(0, 0.5).setDepth(1003).setScrollFactor(0);
+
+        const headerScore = this.add.text(centerX + 80, centerY - 20, 'SCORE', {
+            fontSize: '12px',
+            color: '#888888',
+            fontStyle: 'bold'
+        }).setOrigin(0.5, 0.5).setDepth(1003).setScrollFactor(0);
+
+        const headerKD = this.add.text(centerX + 160, centerY - 20, 'K/D', {
+            fontSize: '12px',
+            color: '#888888',
+            fontStyle: 'bold'
+        }).setOrigin(0.5, 0.5).setDepth(1003).setScrollFactor(0);
+
+        const headerRatio = this.add.text(centerX + 230, centerY - 20, 'RATIO', {
+            fontSize: '12px',
+            color: '#888888',
+            fontStyle: 'bold'
+        }).setOrigin(0.5, 0.5).setDepth(1003).setScrollFactor(0);
+
+        // ====== PLAYER ENTRIES ======
+        
+        const leaderboardEntries = [];
+        let yOffset = centerY + 15;
+        
+        data.finalScores.slice(0, 8).forEach((playerData, index) => {
+            const rank = index + 1;
+            const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `${rank}.`;
+            const isMe = playerData.id === this.room.sessionId;
+            const isWinnerRow = playerData.id === data.winner;
+            
+            // Row background (highlight winner and me)
+            let rowBg = null;
+            if (isWinnerRow) {
+                rowBg = this.add.rectangle(centerX, yOffset, 550, 28, 0xFFD700, 0.15);
+                rowBg.setDepth(1002).setScrollFactor(0);
+            } else if (isMe) {
+                rowBg = this.add.rectangle(centerX, yOffset, 550, 28, 0x4444FF, 0.15);
+                rowBg.setDepth(1002).setScrollFactor(0);
+            }
+
+            // Separator line
+            const separator = this.add.rectangle(centerX, yOffset + 14, 550, 1, 0x333333);
+            separator.setDepth(1002).setScrollFactor(0);
+
+            const textColor = isMe ? '#FFD700' : '#FFFFFF';
+            const fontStyle = isMe ? 'bold' : 'normal';
+
+            // Rank
+            const rankText = this.add.text(centerX - 240, yOffset, medal, {
+                fontSize: '16px',
+                color: textColor,
+                fontStyle: fontStyle
+            }).setOrigin(0, 0.5).setDepth(1003).setScrollFactor(0);
+
+            // Player name
+            const nameDisplay = isMe ? `${playerData.name} (You)` : playerData.name;
+            const playerName = this.add.text(centerX - 170, yOffset, nameDisplay.substring(0, 20), {
+                fontSize: '14px',
+                color: textColor,
+                fontStyle: fontStyle
+            }).setOrigin(0, 0.5).setDepth(1003).setScrollFactor(0);
+
+            // Score
+            const scoreText = this.add.text(centerX + 80, yOffset, playerData.score || 0, {
+                fontSize: '16px',
+                color: '#FFD700',
+                fontStyle: 'bold'
+            }).setOrigin(0.5, 0.5).setDepth(1003).setScrollFactor(0);
+
+            // K/D
+            const kdDisplay = `${playerData.kills || 0}/${playerData.deaths || 0}`;
+            const kdText = this.add.text(centerX + 160, yOffset, kdDisplay, {
+                fontSize: '13px',
+                color: '#00ff88'
+            }).setOrigin(0.5, 0.5).setDepth(1003).setScrollFactor(0);
+
+            // Ratio
+            const ratio = playerData.deaths > 0 
+                ? (playerData.kills / playerData.deaths).toFixed(2)
+                : (playerData.kills || 0);
+            const ratioText = this.add.text(centerX + 230, yOffset, ratio, {
+                fontSize: '14px',
+                color: '#aa88ff',
+                fontStyle: 'bold'
+            }).setOrigin(0.5, 0.5).setDepth(1003).setScrollFactor(0);
+
+            leaderboardEntries.push({
+                rowBg,
+                separator,
+                rankText,
+                playerName,
+                scoreText,
+                kdText,
+                ratioText
+            });
+
+            yOffset += 35;
+        });
+
+        // ====== CLOSE BUTTON ======
+        
+        const buttonBg = this.add.rectangle(centerX, centerY + 210, 200, 45, 0x00ff88);
+        buttonBg.setDepth(1002).setScrollFactor(0);
+        buttonBg.setInteractive({ useHandCursor: true });
+
+        const buttonText = this.add.text(centerX, centerY + 210,
+            'Close', {
+            fontSize: '18px',
+            color: '#000000',
+            fontStyle: 'bold'
+        }).setOrigin(0.5).setDepth(1003).setScrollFactor(0);
 
         // Button hover effect
         buttonBg.on('pointerover', () => {
@@ -409,18 +794,27 @@ export class ShooterScene extends FreeForAllGameScene {
             buttonBg.setFillStyle(0x00ff88);
         });
 
-        // Button click - chỉ đóng overlay
+        // Button click - close overlay
         buttonBg.on('pointerdown', () => {
             this.hideEndGameScreen();
         });
 
-        // Store references for cleanup
+        // ====== Store UI references ======
+        
         this.endGameUI = {
             overlay,
+            panelBg,
+            panelBorder,
             title,
             winnerText,
-            scoreText,
-            leaderboardTitle,
+            winnerScoreText,
+            scoreboardTitle,
+            headerBg,
+            headerRank,
+            headerPlayer,
+            headerScore,
+            headerKD,
+            headerRatio,
             leaderboardEntries,
             buttonBg,
             buttonText
@@ -433,11 +827,21 @@ export class ShooterScene extends FreeForAllGameScene {
         Object.values(this.endGameUI).forEach(obj => {
             if (!obj) return;
 
-            // Nếu là array (ví dụ leaderboardEntries)
+            // Nếu là array (ví dụ leaderboardEntries - array of objects)
             if (Array.isArray(obj)) {
-                obj.forEach(child => {
-                    if (child && child.destroy) {
-                        child.destroy();
+                obj.forEach(entry => {
+                    if (!entry) return;
+                    
+                    // If entry is an object with multiple properties
+                    if (typeof entry === 'object' && !entry.destroy) {
+                        Object.values(entry).forEach(item => {
+                            if (item && item.destroy) {
+                                item.destroy();
+                            }
+                        });
+                    } else if (entry && entry.destroy) {
+                        // If entry is a simple Phaser object
+                        entry.destroy();
                     }
                 });
             } else if (obj.destroy) {
@@ -556,74 +960,269 @@ export class ShooterScene extends FreeForAllGameScene {
     }
 
     updateHUD() {
-        if (!this.room) return;
+        if (!this.room || !this.room.state) return;
 
         const myPlayer = this.room.state.players.get(this.room.sessionId);
         if (!myPlayer) return;
 
-        // Update my health bar
-        const healthPercent = Math.max(0, myPlayer.health / myPlayer.maxHealth);
-        this.myHealthBar.setDisplaySize(200 * healthPercent, 20);
-        this.myHealthText.setText(`${Math.floor(myPlayer.health)}/${myPlayer.maxHealth}`);
-
+        // Update health bar
+        const healthPercent = Math.max(0, Math.min(1, myPlayer.health / myPlayer.maxHealth));
+        this.myHealthBar.setDisplaySize(196 * healthPercent, 12);
+        this.myHealthText.setText(`${Math.round(myPlayer.health)}/${myPlayer.maxHealth}`);
+        
         // Health bar color
         if (healthPercent > 0.6) {
-            this.myHealthBar.setFillStyle(0x00ff00);
+            this.myHealthBar.setFillStyle(0x00ff00); // Green
         } else if (healthPercent > 0.3) {
-            this.myHealthBar.setFillStyle(0xffaa00);
+            this.myHealthBar.setFillStyle(0xffaa00); // Orange
         } else {
-            this.myHealthBar.setFillStyle(0xff0000);
+            this.myHealthBar.setFillStyle(0xff0000); // Red
         }
 
         // Update K/D
-        this.kdText.setText(`K: ${myPlayer.kills}  D: ${myPlayer.deaths}`);
+        this.kdText.setText(`⚔️ ${myPlayer.kills || 0}  💀 ${myPlayer.deaths || 0}`);
 
-        // Update leaderboard
-        this.updateLeaderboard();
+        // Update respawn message visibility - CHỈ hiển thị khi đang playing VÀ dead
+        const shouldShowRespawnMsg = this.gameState === 'playing' && !myPlayer.isAlive;
+        this.respawnMessageBg.setVisible(shouldShowRespawnMsg);
+        this.respawnMessageBorder.setVisible(shouldShowRespawnMsg);
+        this.respawnMessage.setVisible(shouldShowRespawnMsg);
+        
+        // Pulse effect when dead
+        if (shouldShowRespawnMsg) {
+            const alpha = 0.8 + Math.sin(Date.now() / 200) * 0.2;
+            this.respawnMessage.setAlpha(alpha);
+        }
     }
 
     updateLeaderboard() {
-        if (!this.leaderboardText || !this.room) return;
+        if (!this.room || !this.room.state || !this.leaderboardEntries) return;
 
-        const leaderboard = this.getLeaderboard(5);
-
-        // Debug: log leaderboard data every update
-        // if (!this.lastLeaderboardLog || Date.now() - this.lastLeaderboardLog > 5000) {
-        //     console.log('[ShooterScene] Leaderboard data:', {
-        //         totalPlayers: this.room.state.players.size,
-        //         leaderboardEntries: leaderboard.length,
-        //         playerScoresSize: this.playerScores.size,
-        //         playerScores: Array.from(this.playerScores.entries())
-        //     });
-        //     this.lastLeaderboardLog = Date.now();
-        // }
-
-        if (leaderboard.length === 0) {
-            this.leaderboardText.setText('');
-            return;
-        }
-
-        let text = '📊 LEADERBOARD\n';
-
-        leaderboard.forEach(([sessionId, score], index) => {
-            const player = this.room.state.players.get(sessionId);
-            const name = player?.name || 'Unknown';
-            const kills = player?.kills || 0;
-            const isMe = sessionId === this.room.sessionId;
-
-            const prefix = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`;
-            const nameDisplay = isMe ? `${name} (You)` : name;
-
-            text += `${prefix} ${nameDisplay}: ${kills}\n`;
+        const players = [];
+        this.room.state.players.forEach((player, id) => {
+            players.push({
+                id,
+                name: player.name,
+                score: player.score || 0,
+                kills: player.kills || 0
+            });
         });
 
-        this.leaderboardText.setText(text);
+        // Sort by score
+        players.sort((a, b) => b.score - a.score);
+
+        // Update leaderboard entries - only top 3
+        players.slice(0, 3).forEach((player, index) => {
+            const entry = this.leaderboardEntries[index];
+            if (!entry) return;
+
+            const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`;
+            const isMe = player.id === this.room.sessionId;
+            const displayName = player.name.substring(0, 10); // Truncate long names
+            
+            entry.setText(`${medal} ${displayName}: ${player.score}`);
+            entry.setColor(isMe ? '#FFD700' : '#ffffff'); // Gold for me
+            entry.setFontStyle(isMe ? 'bold' : 'normal');
+            entry.setVisible(true);
+        });
+
+        // Hide unused entries
+        for (let i = players.length; i < 3; i++) {
+            if (this.leaderboardEntries[i]) {
+                this.leaderboardEntries[i].setVisible(false);
+            }
+        }
+    }
+
+    /**
+     * Update crosshair position to follow mouse - only when playing
+     */
+    updateCrosshair() {
+        if (!this.crosshair || !this.input.activePointer) return;
+
+        // Clear previous drawing
+        this.crosshair.clear();
+
+        // Only draw crosshair when playing (using system cursor otherwise)
+        if (this.gameState !== 'playing') return;
+
+        // Get mouse position
+        const cx = this.input.activePointer.x;
+        const cy = this.input.activePointer.y;
+
+        // Draw crosshair at mouse position
+        this.crosshair.lineStyle(2, 0xffffff, 0.7);
+        this.crosshair.lineBetween(cx - 12, cy, cx - 4, cy);
+        this.crosshair.lineBetween(cx + 4, cy, cx + 12, cy);
+        this.crosshair.lineBetween(cx, cy - 12, cx, cy - 4);
+        this.crosshair.lineBetween(cx, cy + 4, cx, cy + 12);
+        
+        this.crosshair.fillStyle(0xff0000, 0.8);
+        this.crosshair.fillCircle(cx, cy, 2);
+    }
+
+    /**
+     * Flash damage effect - red overlay
+     */
+    flashDamage(sessionId) {
+        const playerObj = this.playerSprites.get(sessionId);
+        if (!playerObj) return;
+
+        // Create red overlay flash (since circles don't support tint)
+        const flashOverlay = this.add.circle(
+            playerObj.sprite.x, 
+            playerObj.sprite.y, 
+            22, // Slightly larger than player
+            0xff0000, 
+            0.6
+        );
+        flashOverlay.setDepth(12); // Above player sprite (depth 10)
+        
+        // Fade out and remove
+        this.tweens.add({
+            targets: flashOverlay,
+            alpha: 0,
+            duration: 150,
+            ease: 'Power2',
+            onComplete: () => flashOverlay.destroy()
+        });
+    }
+
+    /**
+     * Death animation - fade out with particle explosion
+     */
+    showDeathAnimation(sessionId) {
+        const playerObj = this.playerSprites.get(sessionId);
+        if (!playerObj) return;
+
+        const x = playerObj.sprite.x;
+        const y = playerObj.sprite.y;
+
+        // Fade out and scale down
+        this.tweens.add({
+            targets: [playerObj.sprite, playerObj.directionIndicator],
+            alpha: 0,
+            scale: 0.3,
+            duration: 400,
+            ease: 'Power2'
+        });
+
+        // Simple particle explosion effect
+        const particleCount = 12;
+        for (let i = 0; i < particleCount; i++) {
+            const angle = (Math.PI * 2 / particleCount) * i;
+            const particle = this.add.circle(x, y, 4, 0xff4444);
+            particle.setDepth(50);
+
+            this.tweens.add({
+                targets: particle,
+                x: x + Math.cos(angle) * 50,
+                y: y + Math.sin(angle) * 50,
+                alpha: 0,
+                scale: 0,
+                duration: 500,
+                ease: 'Power2',
+                onComplete: () => particle.destroy()
+            });
+        }
+
+        // Flash effect
+        const flash = this.add.circle(x, y, 30, 0xffffff, 0.8);
+        flash.setDepth(51);
+        this.tweens.add({
+            targets: flash,
+            scale: 2,
+            alpha: 0,
+            duration: 300,
+            onComplete: () => flash.destroy()
+        });
+    }
+
+    /**
+     * Respawn animation - fade in with pulse and ring effect
+     */
+    showRespawnAnimation(sessionId) {
+        const playerObj = this.playerSprites.get(sessionId);
+        if (!playerObj) return;
+
+        // Get actual respawn position from player state (not old sprite position)
+        const player = this.room.state.players.get(sessionId);
+        if (!player) return;
+        
+        const spawnX = player.x;
+        const spawnY = player.y;
+
+        // Reset visibility
+        playerObj.sprite.setVisible(true);
+        playerObj.directionIndicator.setVisible(true);
+        playerObj.sprite.setAlpha(0);
+        playerObj.directionIndicator.setAlpha(0);
+        playerObj.sprite.setScale(2);
+        playerObj.directionIndicator.setScale(2);
+
+        // Fade in and scale down to normal
+        this.tweens.add({
+            targets: [playerObj.sprite, playerObj.directionIndicator],
+            alpha: 1,
+            scale: 1,
+            duration: 500,
+            ease: 'Back.easeOut'
+        });
+
+        // Spawn flash at NEW respawn position
+        const flash = this.add.circle(spawnX, spawnY, 40, 0x00ff88, 0.6);
+        flash.setDepth(51);
+        this.tweens.add({
+            targets: flash,
+            scale: 1.5,
+            alpha: 0,
+            duration: 400,
+            onComplete: () => flash.destroy()
+        });
+
+        // Ring pulse at NEW respawn position
+        const ring = this.add.circle(spawnX, spawnY, 20);
+        ring.setStrokeStyle(3, 0x00ff88, 1);
+        ring.setDepth(51);
+        this.tweens.add({
+            targets: ring,
+            scale: 3,
+            alpha: 0,
+            duration: 600,
+            ease: 'Sine.easeOut',
+            onComplete: () => ring.destroy()
+        });
+    }
+
+    /**
+     * Muzzle flash effect when shooting
+     */
+    showMuzzleFlash(x, y, rotation) {
+        // Flash at gun position (front of player)
+        const flashX = x + Math.cos(rotation) * 25;
+        const flashY = y + Math.sin(rotation) * 25;
+
+        const flash = this.add.circle(flashX, flashY, 8, 0xffaa00, 0.9);
+        flash.setDepth(15);
+
+        this.tweens.add({
+            targets: flash,
+            alpha: 0,
+            scale: 2,
+            duration: 100,
+            onComplete: () => flash.destroy()
+        });
     }
 
     /**
      * Cleanup
      */
     shutdown() {
+        // Restore system cursor when leaving game
+        if (this.input) {
+            this.input.setDefaultCursor('default');
+        }
+
         // Destroy all sprites
         for (const playerObj of this.playerSprites.values()) {
             playerObj.sprite.destroy();
@@ -647,6 +1246,14 @@ export class ShooterScene extends FreeForAllGameScene {
                 }
             });
             this.endGameUI = null;
+        }
+
+        // Cleanup kill feed entries
+        if (this.killFeedEntries) {
+            this.killFeedEntries.forEach(entry => {
+                if (entry.text && entry.text.destroy) entry.text.destroy();
+            });
+            this.killFeedEntries = [];
         }
 
         super.shutdown();
