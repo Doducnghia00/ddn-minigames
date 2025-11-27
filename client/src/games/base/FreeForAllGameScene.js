@@ -44,14 +44,16 @@ export class FreeForAllGameScene extends BaseGameScene {
 
     /**
      * Setup room event listeners
-     * MUST call super.setRoom(room) first
+     * Called from GamePage when room is connected
      */
     setRoom(room) {
-        super.setRoom(room);
-
-        if (!this.room) return;
-
+        this.room = room;
         this.setupRoomEvents();
+
+        // Setup game-specific server messages (if subclass has it)
+        if (this.setupServerMessages) {
+            this.setupServerMessages();
+        }
     }
 
     /**
@@ -96,14 +98,10 @@ export class FreeForAllGameScene extends BaseGameScene {
             this.onWinnerDeclared(value);
         });
 
-        // Initialize existing players FIRST
-        this.room.state.players.forEach((player, sessionId) => {
-            console.log('[FreeForAllGameScene] Initializing existing player:', sessionId, player.name);
-            this.onPlayerAdded(player, sessionId);
-            this.setupPlayerListeners(player, sessionId);
-        });
+        // IMPORTANT: Set callbacks BEFORE initializing existing players
+        // to prevent race condition where new players join during initialization
 
-        // Listen to player additions (NEW players joining after)
+        // Listen to player additions (NEW players joining)
         this.room.state.players.onAdd = (player, sessionId) => {
             console.log('[FreeForAllGameScene] New player added:', sessionId, player.name);
             this.onPlayerAdded(player, sessionId);
@@ -118,6 +116,13 @@ export class FreeForAllGameScene extends BaseGameScene {
             this.playerDeaths.delete(sessionId);
         };
 
+        // NOW initialize existing players (after callbacks are set)
+        this.room.state.players.forEach((player, sessionId) => {
+            console.log('[FreeForAllGameScene] Initializing existing player:', sessionId, player.name);
+            this.onPlayerAdded(player, sessionId);
+            this.setupPlayerListeners(player, sessionId);
+        });
+
         // Listen to match events
         this.room.onMessage('match_started', (data) => {
             this.onMatchStarted(data);
@@ -129,22 +134,27 @@ export class FreeForAllGameScene extends BaseGameScene {
     }
 
     /**
-     * Setup listeners for individual player changes
+     * Setup listeners for individual player state changes
      */
     setupPlayerListeners(player, sessionId) {
+        // Initialize score tracking (important for leaderboard!)
+        this.playerScores.set(sessionId, player.score || 0);
+        this.playerKills.set(sessionId, player.kills || 0);
+        this.playerDeaths.set(sessionId, player.deaths || 0);
+
         // Listen to score changes
         player.listen('score', (value) => {
             this.playerScores.set(sessionId, value);
             this.onScoreChanged(sessionId, value);
         });
 
-        // Listen to kills
+        // Listen to kills changes
         player.listen('kills', (value) => {
             this.playerKills.set(sessionId, value);
             this.onKillsChanged(sessionId, value);
         });
 
-        // Listen to deaths
+        // Listen to deaths changes
         player.listen('deaths', (value) => {
             this.playerDeaths.set(sessionId, value);
             this.onDeathsChanged(sessionId, value);

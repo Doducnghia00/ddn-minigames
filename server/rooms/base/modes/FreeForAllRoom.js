@@ -88,7 +88,14 @@ class FreeForAllRoom extends BaseRoom {
 
         // Update timer
         this.elapsedTime += deltaTime;
-        this.state.matchTimer = Math.max(0, this.matchDuration - this.elapsedTime);
+        const newTimer = Math.max(0, this.matchDuration - this.elapsedTime);
+
+        // Debug: Log every 5 seconds to check if timer is accurate
+        if (Math.floor(this.state.matchTimer / 5) !== Math.floor(newTimer / 5)) {
+            console.log(`[FreeForAllRoom] Timer: ${Math.floor(newTimer)}s (elapsed: ${this.elapsedTime.toFixed(1)}s, deltaTime: ${deltaTime.toFixed(4)}s)`);
+        }
+
+        this.state.matchTimer = newTimer;
 
         // Check win conditions
         if (this.checkWinCondition()) {
@@ -129,10 +136,10 @@ class FreeForAllRoom extends BaseRoom {
     }
 
     /**
-     * End the match and determine winner
+     * End the current match
      */
     endMatch() {
-        if (this.state.gameState !== 'playing') return;
+        this.state.gameState = 'finished';
 
         // Stop game loop
         if (this.gameLoopInterval) {
@@ -142,11 +149,20 @@ class FreeForAllRoom extends BaseRoom {
 
         // Determine winner
         const winnerId = this.determineWinner();
+        const winner = this.state.players.get(winnerId);
         this.state.winner = winnerId;
-        this.state.gameState = 'finished';
+
+        console.log('=== MATCH ENDED ===');
+        console.log(`Winner: ${winner?.name || 'Unknown'} (${winnerId})`);
+        console.log(`Score: ${winner?.score || 0}`);
+        console.log(`Kills: ${winner?.kills || 0}`);
+        console.log('Final Scores:', this.getFinalScores());
+        console.log('==================');
 
         this.broadcast('match_ended', {
             winner: winnerId,
+            winnerName: winner?.name || 'Unknown',
+            winnerScore: winner?.score || 0,
             finalScores: this.getFinalScores()
         });
 

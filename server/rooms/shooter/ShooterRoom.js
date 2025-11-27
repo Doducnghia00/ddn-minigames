@@ -16,9 +16,20 @@ const { Bullet } = require('./Bullet');
  */
 class ShooterRoom extends FreeForAllRoom {
     onCreate(options) {
-        super.onCreate(options);
+        // Set custom options BEFORE calling super to override defaults
+        const shooterOptions = {
+            ...options,
+            scoreLimit: options.scoreLimit || 3,      // DEBUG: 3 kills to win
+            matchDuration: options.matchDuration || 120  // DEBUG: 2 minutes
+        };
+
+        super.onCreate(shooterOptions);
 
         this.nextBulletId = 0;
+
+        // Increase state sync rate for smoother timer updates
+        // Default is 50ms (20 FPS), we want 16.67ms (60 FPS) for accurate timer
+        this.setPatchRate(16.67); // 60 FPS sync rate
 
         // Register shooter-specific message handlers
         this.onMessage('move', (client, data) => {
@@ -59,9 +70,8 @@ class ShooterRoom extends FreeForAllRoom {
     createInitialState(options) {
         const state = new ShooterState();
 
-        // Apply custom options if provided
-        if (options.matchDuration) state.matchTimer = options.matchDuration;
-        if (options.scoreLimit) state.scoreLimit = options.scoreLimit;
+        // State will be configured by FreeForAllRoom.onCreate()
+        // which reads from options.scoreLimit and options.matchDuration
 
         return state;
     }
@@ -322,7 +332,14 @@ class ShooterRoom extends FreeForAllRoom {
 
         console.log(`[ShooterRoom] ${victim.name} killed by ${killer?.name || 'themselves'}. Score: ${killer?.score || 0}`);
 
-        // Schedule respawn
+        // Check win condition after score update
+        if (this.checkWinCondition()) {
+            console.log('[ShooterRoom] Win condition met after kill!');
+            this.endMatch();
+            return; // Don't schedule respawn if match ended
+        }
+
+        // Schedule respawn (only if match still ongoing)
         this.clock.setTimeout(() => {
             if (this.state.gameState === 'playing') {
                 this.respawnPlayer(victimId);

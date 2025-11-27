@@ -876,61 +876,61 @@ gameServer.define('shooter', ShooterRoom)
 2. Join with 2 players
 3. Ready up and start match
 4. Verify:
-   - [ ] Players spawn at random positions
-   - [ ] Timer counts down
-   - [ ] Both players visible
+   - [✓] Players spawn at random positions
+   - [✓] Timer counts down
+   - [✓] Both players visible
 
 #### Test 2: Movement
 1. In active match, press WASD
 2. Verify:
-   - [ ] Player sprite moves
-   - [ ] Position updates for other players
-   - [ ] Cannot move outside arena bounds
+   - [✓] Player sprite moves
+   - [✓] Position updates for other players
+   - [✓] Cannot move outside arena bounds
 
 #### Test 3: Aiming
 1. Move mouse around
 2. Verify:
-   - [ ] Player rotates towards mouse
-   - [ ] Rotation synced to server
+   - [✓] Player rotates towards mouse
+   - [✓] Rotation synced to server
 
 #### Test 4: Shooting
 1. Click mouse to shoot
 2. Verify:
-   - [ ] Bullet appears at player position
-   - [ ] Bullet travels in aimed direction
-   - [ ] Fire rate limit works (can't spam)
-   - [ ] Bullets despawn after 3 seconds
+   - [✓] Bullet appears at player position
+   - [✓] Bullet travels in aimed direction
+   - [✓] Fire rate limit works (can't spam)
+   - [✓] Bullets despawn after 3 seconds
 
 #### Test 5: Combat & Damage
 1. Shoot another player
 2. Verify:
-   - [ ] Bullet hits player (collision works)
-   - [ ] Health decreases
-   - [ ] Health bar updates
+   - [✓] Bullet hits player (collision works)
+   - [✓] Health decreases
+   - [✓] Health bar updates
 
 #### Test 6: Death & Respawn
 1. Kill a player (reduce health to 0)
 2. Verify:
-   - [ ] Player becomes invisible
-   - [ ] Kills/deaths update
-   - [ ] Score updates for killer
-   - [ ] Player respawns after 3 seconds
-   - [ ] Player has full health after respawn
+   - [✓] Player becomes invisible
+   - [✓] Kills/deaths update
+   - [✓] Score updates for killer
+   - [✓] Player respawns after 3 seconds
+   - [✓] Player has full health after respawn
 
 #### Test 7: Win Condition - Score Limit
 1. Set scoreLimit to 3
 2. Get 3 kills
 3. Verify:
-   - [ ] Match ends
-   - [ ] Winner declared
-   - [ ] Leaderboard shows final scores
+   - [✓] Match ends
+   - [✓] Winner declared
+   - [✓] Leaderboard shows final scores
 
 #### Test 8: Win Condition - Time Limit
 1. Set matchDuration to 30 seconds
 2. Wait for timer to reach 0
 3. Verify:
-   - [ ] Match ends
-   - [ ] Player with most kills wins
+   - [✓] Match ends
+   - [✓] Player with most kills wins
 
 #### Test 9: Multi-Player Combat
 1. Join with 4+ players

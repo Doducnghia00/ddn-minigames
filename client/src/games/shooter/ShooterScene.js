@@ -24,12 +24,34 @@ export class ShooterScene extends FreeForAllGameScene {
         // Clear sprite maps
         this.playerSprites.clear();
         this.bulletSprites.clear();
+
+        // Reset movement tracking
+        this.currentMoveDirection = null;
     }
 
     create() {
         this.createArena();
         this.setupInput();
         this.createHUD();
+    }
+
+    /**
+     * Setup server message listeners
+     */
+    setupServerMessages() {
+        if (!this.room) return;
+
+        // Listen to kill events
+        this.room.onMessage('player_killed', (data) => {
+            console.log('[ShooterScene] Player killed:', data.victimName, 'by', data.killerName);
+            // Future: show kill feed notification
+        });
+
+        // Listen to respawn events
+        this.room.onMessage('player_respawned', (data) => {
+            console.log('[ShooterScene] Player respawned:', data.playerName);
+            // Future: show respawn notification
+        });
     }
 
     /**
@@ -142,40 +164,36 @@ export class ShooterScene extends FreeForAllGameScene {
         const myPlayer = this.room.state.players.get(this.room.sessionId);
         if (!myPlayer || !myPlayer.isAlive) return;
 
-        // Movement input
-        const wasMoving = { ...this.isMoving };
+        // Get current key states
+        const up = this.keys.W.isDown || this.keys.UP.isDown;
+        const down = this.keys.S.isDown || this.keys.DOWN.isDown;
+        const left = this.keys.A.isDown || this.keys.LEFT.isDown;
+        const right = this.keys.D.isDown || this.keys.RIGHT.isDown;
 
-        this.isMoving.up = this.keys.W.isDown || this.keys.UP.isDown;
-        this.isMoving.down = this.keys.S.isDown || this.keys.DOWN.isDown;
-        this.isMoving.left = this.keys.A.isDown || this.keys.LEFT.isDown;
-        this.isMoving.right = this.keys.D.isDown || this.keys.RIGHT.isDown;
+        // Determine current movement direction based on ALL pressed keys
+        let moveDirection = null;
 
-        // Send movement messages when state changes
-        if (this.isMoving.up && !wasMoving.up) {
-            this.room.send('move', { direction: 'up' });
-        } else if (!this.isMoving.up && wasMoving.up) {
-            this.room.send('stop_move');
+        // Prioritize most recent key presses for diagonal conflicts
+        if (up && !down) moveDirection = 'up';
+        else if (down && !up) moveDirection = 'down';
+
+        if (left && !right) {
+            moveDirection = left && (up || down) ? moveDirection : 'left';
+        } else if (right && !left) {
+            moveDirection = right && (up || down) ? moveDirection : 'right';
         }
 
-        if (this.isMoving.down && !wasMoving.down) {
-            this.room.send('move', { direction: 'down' });
-        } else if (!this.isMoving.down && wasMoving.down) {
-            this.room.send('stop_move');
+        // Send movement update if direction changed
+        if (moveDirection !== this.currentMoveDirection) {
+            if (moveDirection) {
+                this.room.send('move', { direction: moveDirection });
+            } else {
+                this.room.send('stop_move');
+            }
+            this.currentMoveDirection = moveDirection;
         }
 
-        if (this.isMoving.left && !wasMoving.left) {
-            this.room.send('move', { direction: 'left' });
-        } else if (!this.isMoving.left && wasMoving.left) {
-            this.room.send('stop_move');
-        }
-
-        if (this.isMoving.right && !wasMoving.right) {
-            this.room.send('move', { direction: 'right' });
-        } else if (!this.isMoving.right && wasMoving.right) {
-            this.room.send('stop_move');
-        }
-
-        // Aim towards mouse
+        // Aim towards mouse (send every frame for smooth rotation)
         const pointer = this.input.activePointer;
         const rotation = Phaser.Math.Angle.Between(
             myPlayer.x, myPlayer.y,
@@ -221,6 +239,10 @@ export class ShooterScene extends FreeForAllGameScene {
         sprite.setStrokeStyle(2, 0xffffff);
         sprite.setDepth(10); // Ensure sprite is above background
 
+        // Add direction indicator (small circle at edge to show rotation)
+        const directionIndicator = this.add.circle(player.x + 20, player.y, 5, 0xffffff);
+        directionIndicator.setDepth(11);
+
         // Player name
         const nameText = this.add.text(player.x, player.y - 35, player.name, {
             fontSize: '12px',
@@ -241,6 +263,7 @@ export class ShooterScene extends FreeForAllGameScene {
 
         this.playerSprites.set(sessionId, {
             sprite,
+            directionIndicator,
             nameText,
             healthBarBg,
             healthBar
@@ -260,6 +283,7 @@ export class ShooterScene extends FreeForAllGameScene {
         const playerObj = this.playerSprites.get(sessionId);
         if (playerObj) {
             playerObj.sprite.destroy();
+            playerObj.directionIndicator.destroy();
             playerObj.nameText.destroy();
             playerObj.healthBarBg.destroy();
             playerObj.healthBar.destroy();
@@ -293,8 +317,151 @@ export class ShooterScene extends FreeForAllGameScene {
     }
 
     onMatchEnded(data) {
-        console.log('[ShooterScene] Match ended!', data);
+        console.log('=== MATCH ENDED (CLIENT) ===');
+        console.log('Winner ID:', data.winner);
+        console.log('Winner Name:', data.winnerName);
+        console.log('Winner Score:', data.winnerScore);
+        console.log('Final Scores:', data.finalScores);
+        console.log('Is Me Winner?', data.winner === this.room.sessionId);
+        console.log('============================');
+
+        // Show victory/defeat screen
+        this.showEndGameScreen(data);
     }
+
+    /**
+     * Display end-game overlay with results
+     */
+    showEndGameScreen(data) {
+        const isWinner = data.winner === this.room.sessionId;
+        const centerX = this.cameras.main.width / 2;
+        const centerY = this.cameras.main.height / 2;
+
+        // Nếu đã có overlay rồi thì dọn trước
+        if (this.endGameUI) {
+            this.hideEndGameScreen();
+        }
+
+        // Semi-transparent overlay
+        const overlay = this.add.rectangle(centerX, centerY, 800, 600, 0x000000, 0.85);
+        overlay.setDepth(1000);
+        overlay.setScrollFactor(0);
+
+        // Victory/Defeat title
+        const titleText = isWinner ? '🏆 VICTORY! 🏆' : '💀 DEFEAT 💀';
+        const titleColor = isWinner ? '#FFD700' : '#FF4444';
+
+        const title = this.add.text(centerX, centerY - 180, titleText, {
+            fontSize: '48px',
+            fontStyle: 'bold',
+            color: titleColor,
+            stroke: '#000000',
+            strokeThickness: 6
+        }).setOrigin(0.5).setDepth(1001).setScrollFactor(0);
+
+        // Winner announcement
+        const winnerText = this.add.text(centerX, centerY - 120,
+            `Winner: ${data.winnerName}`, {
+            fontSize: '28px',
+            color: '#FFFFFF',
+            fontStyle: 'bold'
+        }).setOrigin(0.5).setDepth(1001).setScrollFactor(0);
+
+        const scoreText = this.add.text(centerX, centerY - 85,
+            `Score: ${data.winnerScore} kills`, {
+            fontSize: '20px',
+            color: '#00ff88'
+        }).setOrigin(0.5).setDepth(1001).setScrollFactor(0);
+
+        // Final Leaderboard
+        const leaderboardTitle = this.add.text(centerX, centerY - 40,
+            '📊 FINAL STANDINGS', {
+            fontSize: '24px',
+            color: '#00ff88',
+            fontStyle: 'bold'
+        }).setOrigin(0.5).setDepth(1001).setScrollFactor(0);
+
+        // Display top players
+        const leaderboardEntries = [];
+        let yOffset = centerY + 10;
+        data.finalScores.slice(0, 5).forEach((playerData, index) => {
+            const rank = index + 1;
+            const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `${rank}.`;
+            const isMe = playerData.sessionId === this.room.sessionId;
+            const nameDisplay = isMe ? `${playerData.name} (You)` : playerData.name;
+            const color = isMe ? '#FFD700' : '#FFFFFF';
+
+            const entryText = this.add.text(centerX, yOffset,
+                `${medal} ${nameDisplay}: ${playerData.kills} kills`, {
+                fontSize: '18px',
+                color: color,
+                fontStyle: isMe ? 'bold' : 'normal'
+            }).setOrigin(0.5).setDepth(1001).setScrollFactor(0);
+
+            leaderboardEntries.push(entryText);
+            yOffset += 30;
+        });
+
+        // Close button
+        const buttonBg = this.add.rectangle(centerX, centerY + 200, 250, 50, 0x00ff88);
+        buttonBg.setDepth(1001).setScrollFactor(0);
+        buttonBg.setInteractive({ useHandCursor: true });
+
+        const buttonText = this.add.text(centerX, centerY + 200,
+            'Close', {
+            fontSize: '20px',
+            color: '#000000',
+            fontStyle: 'bold'
+        }).setOrigin(0.5).setDepth(1002).setScrollFactor(0);
+
+        // Button hover effect
+        buttonBg.on('pointerover', () => {
+            buttonBg.setFillStyle(0x00dd66);
+        });
+
+        buttonBg.on('pointerout', () => {
+            buttonBg.setFillStyle(0x00ff88);
+        });
+
+        // Button click - chỉ đóng overlay
+        buttonBg.on('pointerdown', () => {
+            this.hideEndGameScreen();
+        });
+
+        // Store references for cleanup
+        this.endGameUI = {
+            overlay,
+            title,
+            winnerText,
+            scoreText,
+            leaderboardTitle,
+            leaderboardEntries,
+            buttonBg,
+            buttonText
+        };
+    }
+
+    hideEndGameScreen() {
+        if (!this.endGameUI) return;
+
+        Object.values(this.endGameUI).forEach(obj => {
+            if (!obj) return;
+
+            // Nếu là array (ví dụ leaderboardEntries)
+            if (Array.isArray(obj)) {
+                obj.forEach(child => {
+                    if (child && child.destroy) {
+                        child.destroy();
+                    }
+                });
+            } else if (obj.destroy) {
+                obj.destroy();
+            }
+        });
+
+        this.endGameUI = null;
+    }
+
 
     // ========== Update Methods ==========
 
@@ -302,19 +469,39 @@ export class ShooterScene extends FreeForAllGameScene {
         if (!this.room) return;
 
         this.room.state.players.forEach((player, sessionId) => {
-            const playerObj = this.playerSprites.get(sessionId);
+            let playerObj = this.playerSprites.get(sessionId);
+
+            // Auto-create sprite if missing (fallback for missed onPlayerAdded)
             if (!playerObj) {
-                console.warn('[ShooterScene] Player sprite not found for:', sessionId);
-                return;
+                console.warn('[ShooterScene] Player sprite missing for:', sessionId, '- creating now (fallback)');
+                this.onPlayerAdded(player, sessionId);
+
+                // IMPORTANT: Also setup listeners for score tracking!
+                if (this.setupPlayerListeners) {
+                    this.setupPlayerListeners(player, sessionId);
+                }
+
+                playerObj = this.playerSprites.get(sessionId);
+
+                if (!playerObj) {
+                    console.error('[ShooterScene] Failed to create sprite for:', sessionId);
+                    return;
+                }
             }
 
-            const { sprite, nameText, healthBarBg, healthBar } = playerObj;
+            const { sprite, directionIndicator, nameText, healthBarBg, healthBar } = playerObj;
 
             // Update position
             sprite.setPosition(player.x, player.y);
             nameText.setPosition(player.x, player.y - 35);
             healthBarBg.setPosition(player.x, player.y + 30);
             healthBar.setPosition(player.x - 20, player.y + 30);
+
+            // Update direction indicator position based on rotation
+            const indicatorDistance = 20; // Same as player radius
+            const indicatorX = player.x + Math.cos(player.rotation) * indicatorDistance;
+            const indicatorY = player.y + Math.sin(player.rotation) * indicatorDistance;
+            directionIndicator.setPosition(indicatorX, indicatorY);
 
             // Update health bar
             const healthPercent = Math.max(0, player.health / player.maxHealth);
@@ -332,18 +519,19 @@ export class ShooterScene extends FreeForAllGameScene {
             // Update visibility based on alive status
             const visible = player.isAlive;
             sprite.setVisible(visible);
+            directionIndicator.setVisible(visible);
             nameText.setVisible(visible);
             healthBarBg.setVisible(visible);
             healthBar.setVisible(visible);
 
-            // Rotate player sprite to face aim direction
-            sprite.setRotation(player.rotation);
+            // Note: We don't rotate the sprite itself anymore since we have direction indicator
 
             // Debug log for first update
             if (!sprite.getData('logged')) {
                 console.log('[ShooterScene] Player sprite update:', {
                     sessionId,
                     position: { x: player.x, y: player.y },
+                    rotation: player.rotation,
                     isAlive: player.isAlive,
                     visible: sprite.visible,
                     spriteExists: !!sprite
@@ -412,6 +600,17 @@ export class ShooterScene extends FreeForAllGameScene {
 
         const leaderboard = this.getLeaderboard(5);
 
+        // Debug: log leaderboard data every update
+        if (!this.lastLeaderboardLog || Date.now() - this.lastLeaderboardLog > 5000) {
+            console.log('[ShooterScene] Leaderboard data:', {
+                totalPlayers: this.room.state.players.size,
+                leaderboardEntries: leaderboard.length,
+                playerScoresSize: this.playerScores.size,
+                playerScores: Array.from(this.playerScores.entries())
+            });
+            this.lastLeaderboardLog = Date.now();
+        }
+
         if (leaderboard.length === 0) {
             this.leaderboardText.setText('');
             return;
@@ -441,6 +640,7 @@ export class ShooterScene extends FreeForAllGameScene {
         // Destroy all sprites
         for (const playerObj of this.playerSprites.values()) {
             playerObj.sprite.destroy();
+            playerObj.directionIndicator.destroy();
             playerObj.nameText.destroy();
             playerObj.healthBarBg.destroy();
             playerObj.healthBar.destroy();
@@ -451,6 +651,16 @@ export class ShooterScene extends FreeForAllGameScene {
             sprite.destroy();
         }
         this.bulletSprites.clear();
+
+        // Cleanup end-game UI if exists
+        if (this.endGameUI) {
+            Object.values(this.endGameUI).forEach(element => {
+                if (element && element.destroy) {
+                    element.destroy();
+                }
+            });
+            this.endGameUI = null;
+        }
 
         super.shutdown();
     }
