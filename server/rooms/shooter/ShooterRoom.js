@@ -47,6 +47,17 @@ class ShooterRoom extends FreeForAllRoom {
         console.log('[ShooterRoom] Room created:', this.roomId);
     }
 
+    onError(client, error) {
+        console.error('[ShooterRoom] Error for client', client.sessionId, ':', error.message);
+        console.error(error.stack);
+    }
+
+    onDispose() {
+        console.log('[ShooterRoom] Room disposing:', this.roomId);
+        console.log('[ShooterRoom] Players at dispose:', this.state?.players?.size);
+        super.onDispose();
+    }
+
     getGameId() {
         return 'shooter';
     }
@@ -96,6 +107,13 @@ class ShooterRoom extends FreeForAllRoom {
         player.health = player.maxHealth;
         player.isAlive = false; // Will be spawned when match starts
         player.lastFireTime = 0;
+
+        console.log('[ShooterRoom] Created player:', {
+            sessionId: client.sessionId,
+            name: player.name,
+            playerType: player.constructor.name,
+            playersMapSize: this.state?.players?.size
+        });
 
         return player;
     }

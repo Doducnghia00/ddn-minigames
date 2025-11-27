@@ -19,6 +19,9 @@ const { Bullet } = require('./Bullet');
  * - Bullets collection
  * - Arena dimensions
  * - Game configuration
+ * 
+ * Note: players field is inherited from BaseRoomState and uses base Player type by default
+ * ShooterPlayer type is enforced by ShooterRoom.createPlayer() method
  */
 class ShooterState extends FreeForAllRoomState {
     constructor() {

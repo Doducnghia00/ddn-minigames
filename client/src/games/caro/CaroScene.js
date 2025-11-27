@@ -61,7 +61,7 @@ export class CaroScene extends TurnBasedGameScene {
     }
 
     setupRoomEvents() {
-        console.log("CaroScene: Room connected", this.room.sessionId);
+        // console.log("CaroScene: Room connected", this.room.sessionId);
 
         // Listen to state changes
         this.room.onStateChange((state) => {
@@ -92,7 +92,7 @@ export class CaroScene extends TurnBasedGameScene {
 
         // Listen to game start
         this.room.onMessage("start_game", (message) => {
-            console.log("Game started!", message);
+            // console.log("Game started!", message);
             this.gameState = 'playing';
             this.hideGameOverModal();
             this.updateGameUI();
@@ -100,7 +100,7 @@ export class CaroScene extends TurnBasedGameScene {
 
         // Listen to game over
         this.room.onMessage("game_over", (message) => {
-            console.log("Game over!", message);
+            // console.log("Game over!", message);
             this.gameState = 'finished';
             this.showGameOverModal(message.winner);
             this.updateGameUI();

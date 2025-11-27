@@ -223,14 +223,6 @@ export class ShooterScene extends FreeForAllGameScene {
     // ========== FFA Scene Hooks ==========
 
     onPlayerAdded(player, sessionId) {
-        console.log('[ShooterScene] Player added:', {
-            name: player.name,
-            sessionId,
-            position: { x: player.x, y: player.y },
-            isAlive: player.isAlive,
-            health: player.health
-        });
-
         const isMe = sessionId === this.room.sessionId;
         const color = isMe ? 0x00ff00 : 0xff0000;
 
@@ -268,13 +260,6 @@ export class ShooterScene extends FreeForAllGameScene {
             healthBarBg,
             healthBar
         });
-
-        console.log('[ShooterScene] Player sprite created:', {
-            sessionId,
-            spritePosition: { x: sprite.x, y: sprite.y },
-            spriteVisible: sprite.visible,
-            spriteDepth: sprite.depth
-        });
     }
 
     onPlayerRemoved(sessionId) {
@@ -291,8 +276,9 @@ export class ShooterScene extends FreeForAllGameScene {
         }
     }
 
-    onGameStateChanged(newState) {
-        console.log('[ShooterScene] Game state:', newState);
+    onGameStateChanged(newState, oldState) {
+        // console.log('[ShooterScene] Game state:', newState);
+        this.gameState = newState;
     }
 
     onTimerUpdate(timeRemaining) {
@@ -527,15 +513,16 @@ export class ShooterScene extends FreeForAllGameScene {
             // Note: We don't rotate the sprite itself anymore since we have direction indicator
 
             // Debug log for first update
+            // Debug logging for this specific player update
+            // console.log('[ShooterScene] Player sprite update:', {
+            //     sessionId,
+            //     position: { x: player.x, y: player.y },
+            //     rotation: player.rotation,
+            //     isAlive: player.isAlive,
+            //     visible: sprite.visible,
+            //     depth: sprite.depth
+            // });
             if (!sprite.getData('logged')) {
-                console.log('[ShooterScene] Player sprite update:', {
-                    sessionId,
-                    position: { x: player.x, y: player.y },
-                    rotation: player.rotation,
-                    isAlive: player.isAlive,
-                    visible: sprite.visible,
-                    spriteExists: !!sprite
-                });
                 sprite.setData('logged', true);
             }
         });
@@ -601,15 +588,15 @@ export class ShooterScene extends FreeForAllGameScene {
         const leaderboard = this.getLeaderboard(5);
 
         // Debug: log leaderboard data every update
-        if (!this.lastLeaderboardLog || Date.now() - this.lastLeaderboardLog > 5000) {
-            console.log('[ShooterScene] Leaderboard data:', {
-                totalPlayers: this.room.state.players.size,
-                leaderboardEntries: leaderboard.length,
-                playerScoresSize: this.playerScores.size,
-                playerScores: Array.from(this.playerScores.entries())
-            });
-            this.lastLeaderboardLog = Date.now();
-        }
+        // if (!this.lastLeaderboardLog || Date.now() - this.lastLeaderboardLog > 5000) {
+        //     console.log('[ShooterScene] Leaderboard data:', {
+        //         totalPlayers: this.room.state.players.size,
+        //         leaderboardEntries: leaderboard.length,
+        //         playerScoresSize: this.playerScores.size,
+        //         playerScores: Array.from(this.playerScores.entries())
+        //     });
+        //     this.lastLeaderboardLog = Date.now();
+        // }
 
         if (leaderboard.length === 0) {
             this.leaderboardText.setText('');

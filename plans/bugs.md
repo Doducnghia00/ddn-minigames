@@ -1,1 +1,1 @@
-- User 1 (Google login) tạo phòng Shooter (Phòng caro không bị), user 2 (Guest) vào nhanh ngay khi phòng xuất hiện (rất nhanh) => Danh sách player phía user 1 đầy đủ 2 người nhưng phía user 2 lại trống, không thấy ai.
+- User 1 (Google login) tạo phòng Shooter (Phòng caro không bị), user 2 (Guest) vào nhanh ngay khi phòng xuất hiện => (Có tỉ lệ, đang bị hên xui lúc bị lúc không) Danh sách player phía user 1 đầy đủ 2 người nhưng phía user 2 lại trống, không thấy ai.
