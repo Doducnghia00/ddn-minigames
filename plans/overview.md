@@ -32,6 +32,8 @@
 
 ## 📋 Kế hoạch triển khai chi tiết
 
+> **Nguyên tắc thiết kế**: Game phải độc lập, portable, self-contained - có thể embed anywhere
+
 ### **Phase 1: Chuẩn bị Infrastructure (Ưu tiên cao)**
 
 #### 1.1.  Hoàn thiện FreeForAllRoom mode
