@@ -67,17 +67,17 @@ const GamePage = () => {
             const SYSTEM_FALLBACK_GAME_ID = DEFAULT_GAME_ID || Object.keys(GAME_REGISTRY)[0];
 
             // Debug logging
-            // console.log('[GamePage] Debug gameId detection:', {
-            //     roomDataGameId: roomData?.gameId,
-            //     metadataGameId: currentRoom?.metadata?.gameId,
-            //     fullMetadata: currentRoom?.metadata,
-            //     fallback: SYSTEM_FALLBACK_GAME_ID
-            // });
+            console.log('[GamePage] Debug gameId detection:', {
+                roomDataGameId: roomData?.gameId,
+                metadataGameId: currentRoom?.metadata?.gameId,
+                fullMetadata: currentRoom?.metadata,
+                fallback: SYSTEM_FALLBACK_GAME_ID
+            });
 
             const gameId = roomData?.gameId || currentRoom?.metadata?.gameId || SYSTEM_FALLBACK_GAME_ID;
             const gameConfig = getGameConfig(gameId);
 
-            // console.log(`[GamePage] Initializing game: ${gameId}`, gameConfig);
+            console.log(`[GamePage] Initializing game: ${gameId}`, gameConfig);
 
             const config = {
                 type: Phaser.AUTO,
@@ -105,7 +105,7 @@ const GamePage = () => {
             const scene = phaserGameRef.current.scene.scenes[0];
             if (scene) {
                 scene.user = user;
-                // console.log("Setting room in scene:", currentRoom.sessionId);
+                console.log("Setting room in scene:", currentRoom.sessionId);
                 if (scene.setRoom) {
                     scene.setRoom(currentRoom);
                 }
@@ -131,67 +131,50 @@ const GamePage = () => {
             }
         });
 
-        // Listen to player additions/removals directly (onStateChange doesn't fire for MapSchema changes!)
-        currentRoom.state.players.onAdd = (player, sessionId) => {
-            console.log('[GamePage] Player added:', sessionId, player.name);
-            setPlayers((prev) => {
-                const updated = new Map(prev);
-                updated.set(sessionId, {
+        // Helper function to sync state to React
+        const syncStateToReact = (state) => {
+            console.log('[GamePage] Syncing state - players in state:', state.players.size);
+
+            const playerMap = new Map();
+            state.players.forEach((player, id) => {
+                // Only sync BASE player fields - no game-specific data
+                playerMap.set(id, {
                     id: player.id,
                     name: player.name,
                     avatar: player.avatar,
                     isOwner: player.isOwner,
                     isReady: player.isReady
                 });
-                console.log('[GamePage] Players Map size after add:', updated.size);
-                return updated;
             });
+
+            console.log('[GamePage] Setting players Map size:', playerMap.size);
+            setPlayers(playerMap);
+            setRoomOwner(state.roomOwner);
+            setCurrentTurn(isTurnBased ? (state.currentTurn || null) : null);
+
+            const readyPlayers = Array.from(playerMap.values()).filter((p) => p.isReady).length;
+            setReadyCount(readyPlayers);
+            const me = playerMap.get(currentRoom.sessionId);
+            setIsReady(!!me?.isReady);
+            setGameState(state.gameState);
         };
 
-        currentRoom.state.players.onRemove = (player, sessionId) => {
-            console.log('[GamePage] Player removed:', sessionId);
-            setPlayers((prev) => {
-                const updated = new Map(prev);
-                updated.delete(sessionId);
-                console.log('[GamePage] Players Map size after remove:', updated.size);
-                return updated;
-            });
-        };
-
-        // Initialize with existing players
-        console.log('[GamePage] Initializing with existing players:', currentRoom.state.players.size);
-        const initialPlayers = new Map();
-        currentRoom.state.players.forEach((player, sessionId) => {
-            initialPlayers.set(sessionId, {
-                id: player.id,
-                name: player.name,
-                avatar: player.avatar,
-                isOwner: player.isOwner,
-                isReady: player.isReady
-            });
-        });
-        console.log('[GamePage] Initial players Map size:', initialPlayers.size);
-        setPlayers(initialPlayers);
-
-        // Listen to other state changes
-        currentRoom.state.listen('roomOwner', (value) => {
-            setRoomOwner(value);
-        });
-
-        currentRoom.state.listen('gameState', (value) => {
-            setGameState(value);
-        });
-
-        if (isTurnBased) {
-            currentRoom.state.listen('currentTurn', (value) => {
-                setCurrentTurn(value || null);
-            });
+        // CRITICAL FIX: Sync initial state immediately to avoid race condition
+        // onStateChange only fires on CHANGES, not on initial state
+        if (currentRoom.state) {
+            console.log('[GamePage] Syncing initial state immediately');
+            syncStateToReact(currentRoom.state);
         }
+
+        // Then listen for future state changes
+        currentRoom.onStateChange((state) => {
+            syncStateToReact(state);
+        });
 
         return () => {
             clearTimeout(timeoutId);
             if (phaserGameRef.current) {
-                // console.log("Destroying Phaser game instance");
+                console.log("Destroying Phaser game instance");
 
                 // Clean up DOM elements before destroying Phaser
                 const scene = phaserGameRef.current.scene.scenes[0];
@@ -250,8 +233,7 @@ const GamePage = () => {
     const canStartMatch = currentRoom?.sessionId === roomOwner && gameState !== 'playing' && everyoneReady;
     const canKickPlayers = allowKicks && currentRoom?.sessionId === roomOwner;
 
-    // DEBUG: Only log for race condition analysis
-    console.log("[GamePage RENDER] players Map size:", players.size);
+    console.log("players", players);
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 py-8">

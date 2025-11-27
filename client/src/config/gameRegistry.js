@@ -79,7 +79,7 @@ export const GAME_REGISTRY = {
             roomName: `${user?.name || 'Player'}'s Arena`,
             password: ''
         })
-    }
+    },
     // Future games can be added here...
 };
 
