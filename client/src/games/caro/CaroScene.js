@@ -1,12 +1,6 @@
 import Phaser from 'phaser';
 import { TurnBasedGameScene } from '../base/TurnBasedGameScene';
 
-const BOARD_CONSTANTS = {
-    cellSize: 40,
-    boardSize: 15,
-    width: 800,
-    height: 600
-};
 
 export class CaroScene extends TurnBasedGameScene {
     constructor() {
@@ -16,23 +10,103 @@ export class CaroScene extends TurnBasedGameScene {
     init(data) {
         super.init(data);
 
-        // Caro-specific initialization
-        this.cellSize = BOARD_CONSTANTS.cellSize;
-        this.boardSize = BOARD_CONSTANTS.boardSize;
-        this.offsetX = (BOARD_CONSTANTS.width - this.cellSize * this.boardSize) / 2;
-        this.offsetY = (BOARD_CONSTANTS.height - this.cellSize * this.boardSize) / 2;
+        // Canvas dimensions - get from Phaser scale manager
+        this.canvasWidth = this.scale.width;
+        this.canvasHeight = this.scale.height;
+
+        // Board configuration (will be set from server state)
+        this.boardSize = 15;        // Default, will update from server
+        this.winCondition = 5;      // Default, will update from server
+        this.cellSize = 40;         // Will recalculate based on board size
+        this.minCellSize = 28;      // Minimum cell size to keep marks readable
+        
+        // Calculate offsets (will recalculate when board size changes)
+        this.calculateBoardLayout();
+        
+        // Board marks tracking
         this.boardMarks = new Map();
+        this.lastMoveIndex = -1;    // Track last move for highlighting
+        
+        // Track timeout for modal delay
+        this.gameOverTimeout = null;
+    }
+
+    /**
+     * Calculate board layout based on current board size
+     * 
+     * Layout structure (top to bottom):
+     * - Top margin (minEdgePadding)
+     * - Turn indicator (indicatorHeight + indicatorGap)
+     * - Board
+     * - Bottom margin (minEdgePadding)
+     */
+    calculateBoardLayout() {
+        // Minimum padding from canvas edges
+        const minEdgePadding = 30;
+        
+        // Turn indicator space
+        const indicatorHeight = 36;
+        const indicatorGap = 36; // Gap between indicator and board
+        
+        // Calculate available space for board
+        const topReserved = minEdgePadding + indicatorHeight + indicatorGap;
+        const bottomReserved = minEdgePadding;
+        const horizontalReserved = minEdgePadding * 2;
+        
+        const availableWidth = this.canvasWidth - horizontalReserved;
+        const availableHeight = this.canvasHeight - topReserved - bottomReserved;
+        
+        // Calculate optimal cell size with minimum constraint
+        const maxCellWidth = availableWidth / this.boardSize;
+        const maxCellHeight = availableHeight / this.boardSize;
+        const rawCellSize = Math.min(maxCellWidth, maxCellHeight);
+        
+        // Enforce minimum cell size to keep marks readable
+        this.cellSize = Math.floor(Math.max(rawCellSize, this.minCellSize));
+        
+        // Calculate board dimensions
+        const boardWidth = this.cellSize * this.boardSize;
+        const boardHeight = this.cellSize * this.boardSize;
+        
+        // Center horizontally, position vertically with indicator space
+        this.offsetX = (this.canvasWidth - boardWidth) / 2;
+        this.offsetY = topReserved + (availableHeight - boardHeight) / 2;
+        
+        // Store indicator position for createGameUI
+        this.indicatorY = minEdgePadding + indicatorHeight / 2;
     }
 
     create() {
-        // Background
-        this.add.rectangle(400, 300, 800, 600, 0x111827);
+        const centerX = this.canvasWidth / 2;
+        const centerY = this.canvasHeight / 2;
+
+        // Background - full canvas size
+        this.add.rectangle(centerX, centerY, this.canvasWidth, this.canvasHeight, 0x111827);
 
         this.createBoard();
         this.createGameUI();
 
+        // Listen to resize events for responsive scaling
+        this.scale.on('resize', this.handleResize, this);
+
         // Cleanup on scene shutdown
         this.events.on('shutdown', this.cleanup, this);
+    }
+
+    handleResize(gameSize) {
+        // Only recreate if size actually changed
+        if (this.canvasWidth === gameSize.width && this.canvasHeight === gameSize.height) {
+            return;
+        }
+        
+        console.log('[CaroScene] Handling resize:', gameSize.width, 'x', gameSize.height);
+        
+        this.canvasWidth = gameSize.width;
+        this.canvasHeight = gameSize.height;
+        
+        this.calculateBoardLayout();
+        this.recreateBoard();
+        this.repositionGameUI();
     }
 
     // Method to set room from GamePage
@@ -42,21 +116,37 @@ export class CaroScene extends TurnBasedGameScene {
     }
 
     cleanup() {
+        // Remove resize listener
+        this.scale.off('resize', this.handleResize, this);
+        
+        // Clear game over timeout
+        if (this.gameOverTimeout) {
+            clearTimeout(this.gameOverTimeout);
+            this.gameOverTimeout = null;
+        }
+        
         if (this.room) {
             this.room.removeAllListeners();
         }
-        // Clean up DOM elements
-        if (this.turnIndicator) {
-            this.turnIndicator.remove();
-            this.turnIndicator = null;
+        
+        // Clean up turn indicator Phaser objects
+        if (this.turnIndicatorBg) {
+            this.turnIndicatorBg.destroy();
+            this.turnIndicatorBg = null;
+        }
+        if (this.statusDot) {
+            this.statusDot.destroy();
             this.statusDot = null;
+        }
+        if (this.statusText) {
+            this.statusText.destroy();
             this.statusText = null;
         }
 
-        // Fallback: remove any orphaned turn indicator
-        const orphanedIndicator = document.getElementById('caro-turn-indicator');
-        if (orphanedIndicator) {
-            orphanedIndicator.remove();
+        // Clean up hover highlight
+        if (this.hoverGraphics) {
+            this.hoverGraphics.destroy();
+            this.hoverGraphics = null;
         }
 
         if (this.gameOverModal) this.gameOverModal.destroy();
@@ -67,7 +157,22 @@ export class CaroScene extends TurnBasedGameScene {
     }
 
     setupRoomEvents() {
+        // Listen to board size changes from server
+        this.room.state.listen('boardSize', (value) => {
+            if (this.boardSize !== value) {
+                console.log('[CaroScene] Board size changed:', this.boardSize, '->', value);
+                this.boardSize = value;
+                this.calculateBoardLayout();
+                this.recreateBoard();
+            }
+        });
 
+        // Listen to win condition changes from server
+        this.room.state.listen('winCondition', (value) => {
+            console.log('[CaroScene] Win condition changed:', this.winCondition, '->', value);
+            this.winCondition = value;
+            // Update UI to show win condition if needed
+        });
 
         // Listen to state changes
         this.room.onStateChange((state) => {
@@ -98,7 +203,12 @@ export class CaroScene extends TurnBasedGameScene {
 
         // Listen to game start
         this.room.onMessage("start_game", (message) => {
-
+            // Clear any pending game over modal timeout
+            if (this.gameOverTimeout) {
+                clearTimeout(this.gameOverTimeout);
+                this.gameOverTimeout = null;
+            }
+            
             this.gameState = 'playing';
             this.hideGameOverModal();
             this.updateGameUI();
@@ -106,90 +216,127 @@ export class CaroScene extends TurnBasedGameScene {
 
         // Listen to game over
         this.room.onMessage("game_over", (message) => {
-
             this.gameState = 'finished';
-            this.showGameOverModal(message.winner);
             this.updateGameUI();
+            
+            // Clear any existing timeout
+            if (this.gameOverTimeout) {
+                clearTimeout(this.gameOverTimeout);
+            }
+            
+            // Delay modal to let last move animation complete and be visible
+            this.gameOverTimeout = setTimeout(() => {
+                this.showGameOverModal(message.winner);
+                this.gameOverTimeout = null;
+            }, 800); // 300ms animation + 500ms appreciation time
         });
 
     }
 
     createGameUI() {
-        const existingIndicator = document.getElementById('caro-turn-indicator');
-        if (existingIndicator) {
-            existingIndicator.remove();
-        }
+        // Use stored indicator position from calculateBoardLayout
+        const indicatorX = this.canvasWidth / 2;
+        const indicatorY = this.indicatorY;
 
-        // Create turn indicator container
-        this.turnIndicator = document.createElement('div');
-        this.turnIndicator.id = 'caro-turn-indicator';
-        this.turnIndicator.style.position = 'absolute';
-        this.turnIndicator.style.top = '16px';
-        this.turnIndicator.style.left = '50%';
-        this.turnIndicator.style.transform = 'translateX(-50%)';
-        this.turnIndicator.style.zIndex = '1000';
-        this.turnIndicator.style.pointerEvents = 'none';
-        this.turnIndicator.innerHTML = `
-            <div style="
-                background: rgba(15, 23, 42, 0.95);
-                backdrop-filter: blur(12px);
-                border: 1px solid rgba(148, 163, 184, 0.3);
-                border-radius: 9999px;
-                padding: 12px 24px;
-                display: flex;
-                align-items: center;
-                gap: 12px;
-                font-family: Inter, system-ui, sans-serif;
-                box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.35);
-            ">
-                <div data-role="status-dot" style="
-                    width: 10px;
-                    height: 10px;
-                    border-radius: 50%;
-                    background: #eab308;
-                "></div>
-                <span data-role="status-text" style="
-                    font-size: 16px;
-                    font-weight: bold;
-                    color: #f1f5f9;
-                ">⏳ Waiting for opponent...</span>
-            </div>
-        `;
-        document.body.appendChild(this.turnIndicator);
-        this.statusDot = this.turnIndicator.querySelector('[data-role="status-dot"]');
-        this.statusText = this.turnIndicator.querySelector('[data-role="status-text"]');
+        // Create background pill shape (will be redrawn when text changes)
+        this.turnIndicatorBg = this.add.graphics();
+
+        // Create status dot (circle)
+        this.statusDot = this.add.circle(0, indicatorY, 5, 0xeab308);
+
+        // Create status text
+        this.statusText = this.add.text(0, indicatorY, '⏳ Waiting for opponent...', {
+            fontSize: '14px',
+            fontFamily: 'Inter, system-ui, sans-serif',
+            fontStyle: 'bold',
+            color: '#fbbf24'
+        }).setOrigin(0, 0.5);
+
+        // Initial draw of background and positioning
+        this.updateIndicatorLayout();
+
+        // Add pulse animation to dot
+        this.tweens.add({
+            targets: this.statusDot,
+            alpha: { from: 1, to: 0.5 },
+            duration: 1000,
+            yoyo: true,
+            repeat: -1,
+            ease: 'Sine.easeInOut'
+        });
+    }
+
+    /**
+     * Update indicator layout based on text width (dynamic pill sizing)
+     */
+    updateIndicatorLayout() {
+        if (!this.statusText || !this.turnIndicatorBg || !this.statusDot) return;
+
+        const indicatorX = this.canvasWidth / 2;
+        const indicatorY = this.indicatorY;
+
+        // Calculate dynamic width based on text
+        const paddingX = 20;
+        const dotSize = 10;
+        const gapAfterDot = 12;
+        const textWidth = this.statusText.width;
+        const contentWidth = paddingX + dotSize + gapAfterDot + textWidth + paddingX;
+        const pillWidth = Math.max(contentWidth, 200); // minimum 200px
+        const pillHeight = 36;
+
+        // Draw pill background
+        this.turnIndicatorBg.clear();
+        this.turnIndicatorBg.fillStyle(0x0f172a, 0.95);
+        this.turnIndicatorBg.fillRoundedRect(
+            indicatorX - pillWidth / 2, 
+            indicatorY - pillHeight / 2, 
+            pillWidth, 
+            pillHeight, 
+            pillHeight / 2
+        );
+        this.turnIndicatorBg.lineStyle(1, 0x94a3b8, 0.3);
+        this.turnIndicatorBg.strokeRoundedRect(
+            indicatorX - pillWidth / 2, 
+            indicatorY - pillHeight / 2, 
+            pillWidth, 
+            pillHeight, 
+            pillHeight / 2
+        );
+
+        // Position dot and text relative to pill
+        const leftX = indicatorX - pillWidth / 2;
+        this.statusDot.setPosition(leftX + paddingX + dotSize / 2, indicatorY);
+        this.statusText.setPosition(this.statusDot.x + dotSize / 2 + gapAfterDot, indicatorY);
     }
 
     updateGameUI() {
-        const statusDot = this.statusDot;
-        const statusText = this.statusText;
-        if (!statusDot || !statusText) return;
+        if (!this.statusDot || !this.statusText) return;
 
         if (this.gameState === 'waiting') {
-            statusDot.style.background = '#eab308';
-            statusDot.style.animation = 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite';
-            statusText.innerHTML = '⏳ Waiting for opponent...';
-            statusText.style.color = '#fbbf24';
+            this.statusDot.setFillStyle(0xeab308);
+            this.statusText.setText('⏳ Waiting for opponent...');
+            this.statusText.setColor('#fbbf24');
         } else if (this.gameState === 'playing') {
             const currentPlayer = this.players.get(this.currentTurn);
             const isMyTurn = this.isMyTurn();
 
-            statusDot.style.background = isMyTurn ? '#10b981' : '#ef4444';
-            statusDot.style.animation = 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite';
+            this.statusDot.setFillStyle(isMyTurn ? 0x10b981 : 0xef4444);
 
             if (isMyTurn) {
-                statusText.innerHTML = '🎮 Your turn';
-                statusText.style.color = '#10b981';
+                this.statusText.setText('🎮 Your turn');
+                this.statusText.setColor('#10b981');
             } else if (currentPlayer) {
-                statusText.innerHTML = `🎮 ${currentPlayer.name}'s turn`;
-                statusText.style.color = '#ef4444';
+                this.statusText.setText(`🎮 ${currentPlayer.name}'s turn`);
+                this.statusText.setColor('#ef4444');
             }
         } else if (this.gameState === 'finished') {
-            statusDot.style.background = '#8b5cf6';
-            statusDot.style.animation = 'none';
-            statusText.innerHTML = '🏁 The game is over - please Ready up';
-            statusText.style.color = '#a78bfa';
+            this.statusDot.setFillStyle(0x8b5cf6);
+            this.statusText.setText('🏁 Game over - Ready up!');
+            this.statusText.setColor('#a78bfa');
         }
+
+        // Redraw pill background with new text width
+        this.updateIndicatorLayout();
     }
 
     showGameOverModal(winner) {
@@ -271,7 +418,7 @@ export class CaroScene extends TurnBasedGameScene {
             </style>
         `;
 
-        this.gameOverModal = this.add.dom(400, 300).createFromHTML(modalHTML);
+        this.gameOverModal = this.add.dom(this.canvasWidth / 2, this.canvasHeight / 2).createFromHTML(modalHTML);
 
         // Add event listeners
         setTimeout(() => {
@@ -283,6 +430,12 @@ export class CaroScene extends TurnBasedGameScene {
     }
 
     hideGameOverModal() {
+        // Clear any pending game over modal timeout
+        if (this.gameOverTimeout) {
+            clearTimeout(this.gameOverTimeout);
+            this.gameOverTimeout = null;
+        }
+        
         if (this.gameOverModal) {
             this.gameOverModal.destroy();
             this.gameOverModal = null;
@@ -327,10 +480,55 @@ export class CaroScene extends TurnBasedGameScene {
         }
         graphics.strokePath();
 
-        // Interactive Zone
-        this.add
-            .zone(400, 300, 800, 600)
+        // Store graphics for cleanup
+        this.boardGraphics = [boardBg, graphics];
+
+        // Hover highlight graphics
+        this.hoverGraphics = this.add.graphics();
+
+        // Interactive Zone - only cover the board area (not full canvas)
+        const boardWidth = this.boardSize * this.cellSize;
+        const boardHeight = this.boardSize * this.cellSize;
+        const boardCenterX = this.offsetX + boardWidth / 2;
+        const boardCenterY = this.offsetY + boardHeight / 2;
+
+        this.boardZone = this.add
+            .zone(boardCenterX, boardCenterY, boardWidth, boardHeight)
             .setInteractive()
+            .on('pointermove', (pointer) => {
+                // Only show hover if game is playing and it's my turn
+                if (!this.room || this.gameState !== 'playing' || !this.isMyTurn()) {
+                    this.hoverGraphics.clear();
+                    return;
+                }
+
+                const x = Math.floor((pointer.x - this.offsetX) / this.cellSize);
+                const y = Math.floor((pointer.y - this.offsetY) / this.cellSize);
+
+                this.hoverGraphics.clear();
+                
+                // Check if cell is valid and empty
+                if (x >= 0 && x < this.boardSize && y >= 0 && y < this.boardSize) {
+                    const index = y * this.boardSize + x;
+                    
+                    // Check if cell is empty (no mark exists for this index)
+                    const isEmpty = !this.boardMarks.has(index);
+                    
+                    if (isEmpty) {
+                        // Draw hover highlight
+                        this.hoverGraphics.lineStyle(2, 0x4ade80, 0.6);
+                        this.hoverGraphics.strokeRect(
+                            this.offsetX + x * this.cellSize + 2,
+                            this.offsetY + y * this.cellSize + 2,
+                            this.cellSize - 4,
+                            this.cellSize - 4
+                        );
+                    }
+                }
+            })
+            .on('pointerout', () => {
+                this.hoverGraphics.clear();
+            })
             .on('pointerdown', (pointer) => {
                 if (!this.room || this.gameState !== 'playing') {
                     return;
@@ -345,9 +543,60 @@ export class CaroScene extends TurnBasedGameScene {
                 const y = Math.floor((pointer.y - this.offsetY) / this.cellSize);
 
                 if (x >= 0 && x < this.boardSize && y >= 0 && y < this.boardSize) {
+                    this.lastMoveIndex = y * this.boardSize + x;
                     this.room.send("move", { x, y });
                 }
             });
+    }
+
+    /**
+     * Recreate board when size changes
+     */
+    recreateBoard() {
+        console.log('[CaroScene] Recreating board with size:', this.boardSize);
+        
+        // Destroy old board graphics
+        if (this.boardGraphics) {
+            this.boardGraphics.forEach(g => g.destroy());
+            this.boardGraphics = null;
+        }
+        
+        // Destroy hover graphics
+        if (this.hoverGraphics) {
+            this.hoverGraphics.destroy();
+            this.hoverGraphics = null;
+        }
+
+        // Destroy board zone
+        if (this.boardZone) {
+            this.boardZone.destroy();
+            this.boardZone = null;
+        }
+        
+        // Clear all marks
+        if (this.boardMarks) {
+            this.boardMarks.forEach(mark => mark.destroy());
+            this.boardMarks.clear();
+        }
+        
+        // Recreate board with new size
+        this.createBoard();
+        
+        // Reposition turn indicator
+        this.repositionGameUI();
+        
+        // Restore marks from current state
+        if (this.room && this.room.state && this.room.state.board) {
+            this.updateBoard(this.room.state.board);
+        }
+    }
+
+    /**
+     * Reposition turn indicator when board layout changes
+     */
+    repositionGameUI() {
+        // Update layout with new canvas dimensions
+        this.updateIndicatorLayout();
     }
 
     updateBoard(board) {
@@ -381,8 +630,10 @@ export class CaroScene extends TurnBasedGameScene {
             const px = this.offsetX + x * this.cellSize + this.cellSize / 2;
             const py = this.offsetY + y * this.cellSize + this.cellSize / 2;
 
+            // Scale font size based on cell size (roughly 70% of cell)
+            const fontSize = Math.floor(this.cellSize * 0.7);
             const text = this.add.text(px, py, value === 1 ? '✕' : '◯', {
-                fontSize: '28px',
+                fontSize: `${fontSize}px`,
                 fill: value === 1 ? '#ef4444' : '#3b82f6',
                 fontFamily: 'Arial',
                 fontStyle: 'bold'
@@ -390,12 +641,31 @@ export class CaroScene extends TurnBasedGameScene {
 
             text.setData('symbol', value);
 
-            this.tweens.add({
-                targets: text,
-                scale: { from: 0, to: 1 },
-                duration: 200,
-                ease: 'Back.out'
-            });
+            // Special animation for last move
+            const isLastMove = index === this.lastMoveIndex;
+            
+            if (isLastMove) {
+                // Bigger bounce animation for last move
+                this.tweens.add({
+                    targets: text,
+                    scale: { from: 0, to: 1.15 },
+                    duration: 300,
+                    ease: 'Back.out',
+                    yoyo: true,
+                    repeat: 0,
+                    onComplete: () => {
+                        text.setScale(1);
+                    }
+                });
+            } else {
+                // Normal animation
+                this.tweens.add({
+                    targets: text,
+                    scale: { from: 0, to: 1 },
+                    duration: 200,
+                    ease: 'Back.out'
+                });
+            }
 
             this.boardMarks.set(index, text);
         });

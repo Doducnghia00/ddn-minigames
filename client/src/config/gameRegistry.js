@@ -25,15 +25,15 @@ const SCENE_MAP = {
 const PHASER_CONFIG_TEMPLATES = {
     'caro': (width, height) => ({
         type: Phaser.AUTO,
-        width: width || 800,
-        height: height || 600,
+        width: width,
+        height: height,
         backgroundColor: '#1a1a2e'
     }),
     
     'test-ffa': (width, height) => ({
         type: Phaser.AUTO,
-        width: width || 800,
-        height: height || 600,
+        width: width,
+        height: height,
         backgroundColor: '#1a1a2e',
         physics: {
             default: 'arcade',
@@ -43,8 +43,8 @@ const PHASER_CONFIG_TEMPLATES = {
     
     'shooter': (width, height) => ({
         type: Phaser.AUTO,
-        width: width || 800,
-        height: height || 600,
+        width: width,
+        height: height,
         backgroundColor: '#1a1a2e',
         physics: {
             default: 'arcade',
@@ -78,6 +78,7 @@ export async function initGameRegistry() {
         GAME_REGISTRY = {};
         
         for (const game of games) {
+            console.log('[GameRegistry] Game:', game);
             const scene = SCENE_MAP[game.id];
             if (!scene) {
                 console.warn(`[GameRegistry] Scene not found for game: ${game.id}, skipping`);

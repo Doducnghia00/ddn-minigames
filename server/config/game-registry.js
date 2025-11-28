@@ -42,7 +42,7 @@ const GAME_REGISTRY = {
         roomName: 'caro',
         config: {
             match: { minPlayers: 2, maxPlayers: 2 },
-            arena: { width: 800, height: 600 }
+            arena: { width: 800, height: 800 }
         },
         metadata: {
             name: 'Caro Online',

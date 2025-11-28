@@ -1,8 +1,21 @@
 const { TurnBasedRoom } = require('../base/modes/TurnBasedRoom');
 const { CaroState } = require('./CaroState');
 const { CaroPlayer } = require('./CaroPlayer');
+const { CARO_CONFIG } = require('./caro-config');
 
 class CaroRoom extends TurnBasedRoom {
+    constructor() {
+        super();
+        
+        // Initialize game config BEFORE onCreate (needed for createInitialState)
+        this.gameConfig = {
+            boardSize: CARO_CONFIG.board.size,
+            winCondition: CARO_CONFIG.board.winCondition,
+            timePerTurn: CARO_CONFIG.turn.timeLimit,
+            allowUndo: CARO_CONFIG.turn.allowUndo
+        };
+    }
+
     onCreate(options) {
         super.onCreate(options);
 
@@ -34,7 +47,7 @@ class CaroRoom extends TurnBasedRoom {
     }
 
     createInitialState() {
-        return new CaroState();
+        return new CaroState(this.gameConfig.boardSize, this.gameConfig.winCondition);
     }
 
     createPlayer(options = {}, client) {
@@ -105,7 +118,9 @@ class CaroRoom extends TurnBasedRoom {
         if (this.state.gameState !== "playing") return;
         if (this.state.currentTurn !== client.sessionId) return;
 
-        const index = y * 15 + x;
+        // Use dynamic board size from config
+        const boardSize = this.gameConfig.boardSize;
+        const index = y * boardSize + x;
         if (index < 0 || index >= this.state.board.length) return;
         if (this.state.board[index] !== 0) return;
 
@@ -163,33 +178,39 @@ class CaroRoom extends TurnBasedRoom {
     }
 
     checkWin(x, y, symbol) {
+        // Use dynamic board size and win condition from config
+        const boardSize = this.gameConfig.boardSize;
+        const winCondition = this.gameConfig.winCondition;
+
         const directions = [
-            [1, 0],
-            [0, 1],
-            [1, 1],
-            [1, -1]
+            [1, 0],   // Horizontal
+            [0, 1],   // Vertical
+            [1, 1],   // Diagonal \
+            [1, -1]   // Diagonal /
         ];
 
         for (const [dx, dy] of directions) {
             let count = 1;
 
-            for (let i = 1; i < 5; i++) {
+            // Check positive direction
+            for (let i = 1; i < winCondition; i++) {
                 const nx = x + dx * i;
                 const ny = y + dy * i;
-                if (nx < 0 || nx >= 15 || ny < 0 || ny >= 15) break;
-                if (this.state.board[ny * 15 + nx] === symbol) count++;
+                if (nx < 0 || nx >= boardSize || ny < 0 || ny >= boardSize) break;
+                if (this.state.board[ny * boardSize + nx] === symbol) count++;
                 else break;
             }
 
-            for (let i = 1; i < 5; i++) {
+            // Check negative direction
+            for (let i = 1; i < winCondition; i++) {
                 const nx = x - dx * i;
                 const ny = y - dy * i;
-                if (nx < 0 || nx >= 15 || ny < 0 || ny >= 15) break;
-                if (this.state.board[ny * 15 + nx] === symbol) count++;
+                if (nx < 0 || nx >= boardSize || ny < 0 || ny >= boardSize) break;
+                if (this.state.board[ny * boardSize + nx] === symbol) count++;
                 else break;
             }
 
-            if (count >= 5) {
+            if (count >= winCondition) {
                 return true;
             }
         }

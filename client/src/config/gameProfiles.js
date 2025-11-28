@@ -33,7 +33,7 @@ export const DEFAULT_GAME_PROFILE = {
     statusTexts: {
         waiting: '⏳ Waiting for players...',
         playing: '🎮 Game in progress',
-        finished: '🏁 Game finished - Ready to continue'
+        finished: '🏁 Game finished'
     },
     behaviors: {
         turnBased: false,
@@ -54,7 +54,7 @@ export const GAME_PROFILES = {
         statusTexts: {
             waiting: '⏳ Waiting for opponent...',
             playing: '🎮 Caro match in progress',
-            finished: '🏁 Caro match finished - Ready to play again'
+            finished: '🏁 Caro match finished'
         },
         behaviors: {
             turnBased: true,
@@ -75,7 +75,7 @@ export const GAME_PROFILES = {
         statusTexts: {
             waiting: '⏳ Preparing for arena combat...',
             playing: '🔫 Arena battle in progress',
-            finished: '🏁 Match finished - Ready for rematch'
+            finished: '🏁 Match finished'
         },
         behaviors: {
             turnBased: false,        // Real-time game

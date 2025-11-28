@@ -237,105 +237,93 @@ const GamePage = () => {
 
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 py-8">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                {/* Game Header */}
-                <div className="mb-6 flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 animate-slide-down">
-                    <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center flex-1">
-                        <div className="glass-effect rounded-xl px-6 py-3 shadow-lg">
-                            <div className="text-xs text-gray-400 uppercase font-bold tracking-wider mb-1">Room</div>
-                            <div className="text-lg font-bold text-white flex items-center gap-2">
-                                <span>{roomName}</span>
-                                <span className="px-2 py-0.5 bg-green-500/20 text-green-400 text-xs rounded-full">Live</span>
-                            </div>
-                        </div>
+        <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 py-4 lg:py-6">
+            <div className="max-w-[1600px] mx-auto px-4">
+                {/* Desktop 3-column layout */}
+                <div className="grid grid-cols-1 lg:grid-cols-[300px_minmax(0,1fr)_300px] gap-4 lg:gap-6 items-stretch">
+                    
+                    {/* LEFT COLUMN: Room Info + Players */}
+                    <div className="flex flex-col gap-4 animate-slide-up order-2 lg:order-1">
+                        {/* Room Info Card (Name + Status + Actions) */}
+                        <div className="glass-effect rounded-xl px-4 py-3.5 shadow-lg border border-slate-700/60">
+                            {/* Top row: room name + LIVE + actions */}
+                            <div className="flex items-center justify-between gap-3">
+                                <div className="min-w-0">
+                                    <div className="flex items-center gap-2">
+                                        <h2 className="text-sm md:text-base font-semibold text-slate-50 truncate">
+                                            {roomName}
+                                        </h2>
 
-                        {/* Game Status Badge */}
-                        <div className="glass-effect rounded-xl px-6 py-3 shadow-lg">
-                            <div className="text-xs text-gray-400 uppercase font-bold tracking-wider mb-1">Status</div>
-                            <div className="text-lg font-bold flex items-center gap-2">
+                                        {/* LIVE badge */}
+                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                                            <span className="text-[11px] font-medium text-emerald-300 tracking-wide">
+                                                LIVE
+                                            </span>
+                                        </span>
+                                    </div>
+                                </div>
+
+                                {/* Action Icons */}
+                                <div className="flex items-center gap-2 flex-shrink-0">
+                                    <button
+                                        onClick={() => setShowNetworkMonitor(!showNetworkMonitor)}
+                                        className={`inline-flex items-center justify-center w-9 h-9 rounded-lg border text-base transition-colors
+                                            ${
+                                                showNetworkMonitor
+                                                    ? 'bg-blue-500/20 border-blue-400/40 text-blue-200'
+                                                    : 'bg-slate-800/80 border-slate-600/40 text-slate-300 hover:bg-slate-700/80 hover:text-white'
+                                            }`}
+                                        title="Toggle Network Monitor"
+                                    >
+                                        📊
+                                    </button>
+
+                                    <button
+                                        onClick={handleLeave}
+                                        className="inline-flex items-center justify-center w-9 h-9 rounded-lg border text-base
+                                                bg-red-500/10 border-red-500/40 text-red-300
+                                                hover:bg-red-500/20 hover:text-red-100 transition-colors"
+                                        title="Leave Room"
+                                    >
+                                        🚪
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Bottom row: status text */}
+                            <div className="mt-2.5 flex items-center gap-2 text-[13px]">
                                 {gameState === 'waiting' ? (
                                     <>
-                                        <span className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse"></span>
-                                        <span className="text-yellow-400">{statusTexts.waiting}</span>
+                                        <span className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse" />
+                                        <span className="text-yellow-300">{statusTexts.waiting}</span>
                                     </>
                                 ) : gameState === 'playing' ? (
                                     <>
-                                        <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-                                        <span className="text-green-400">{statusTexts.playing}</span>
+                                        <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+                                        <span className="text-green-300">{statusTexts.playing}</span>
                                     </>
                                 ) : gameState === 'finished' ? (
                                     <>
-                                        <span className="w-2 h-2 rounded-full bg-purple-500"></span>
-                                        <span className="text-purple-400">{statusTexts.finished}</span>
+                                        <span className="w-2 h-2 rounded-full bg-purple-400" />
+                                        <span className="text-purple-300">{statusTexts.finished}</span>
                                     </>
                                 ) : (
                                     <>
-                                        <span className="w-2 h-2 rounded-full bg-gray-500"></span>
-                                        <span className="text-gray-400">⚪ Loading...</span>
+                                        <span className="w-2 h-2 rounded-full bg-slate-500" />
+                                        <span className="text-slate-400">Loading...</span>
                                     </>
                                 )}
                             </div>
                         </div>
-                    </div>
 
-                    <div className="flex flex-col gap-2 glass-effect rounded-xl px-4 py-3 shadow-lg w-full sm:w-auto">
-                        <div className="text-xs text-gray-400 uppercase font-bold tracking-wider">Queue</div>
-                        <div className="text-sm text-gray-300">
-                            Ready: <span className="text-white font-semibold">{readyCount}/{readinessTarget}</span>
-                        </div>
-                        <div className="text-xs text-gray-500">
-                            Target: {readyStrategy === 'allPlayers' ? 'Everyone ready' : `${minPlayers}+ players`}
-                        </div>
-                        <div className="flex flex-col sm:flex-row gap-2">
-                            <button
-                                onClick={handleToggleReady}
-                                disabled={gameState === 'playing' || totalPlayers === 0}
-                                className={`px-4 py-2 rounded-lg font-semibold transition ${isReady
-                                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/40'
-                                    : 'bg-slate-700/60 text-slate-200 border border-slate-500/50 hover:bg-slate-600/60'
-                                    } ${gameState === 'playing' ? 'opacity-50 cursor-not-allowed' : ''}`}
-                            >
-                                {isReady ? '✅ Ready' : readyIdleLabel}
-                            </button>
-                            {currentRoom?.sessionId === roomOwner && (
-                                <button
-                                    onClick={handleStartMatch}
-                                    disabled={!canStartMatch}
-                                    className={`px-4 py-2 rounded-lg font-semibold transition ${canStartMatch
-                                        ? 'bg-blue-500/80 text-white hover:bg-blue-500'
-                                        : 'bg-slate-700/60 text-slate-400 cursor-not-allowed'
-                                        }`}
-                                >
-                                    🚀 Start Match
-                                </button>
-                            )}
-                        </div>
-                    </div>
 
-                    <div className="flex gap-2">
-                        <button
-                            onClick={() => setShowNetworkMonitor(!showNetworkMonitor)}
-                            className="px-4 py-3 bg-slate-700/50 hover:bg-slate-600/50 text-slate-300 border border-slate-500/30 rounded-lg font-bold transition backdrop-blur-md"
-                            title="Toggle Network Monitor"
-                        >
-                            📊
-                        </button>
-                        <button
-                            onClick={handleLeave}
-                            className="px-6 py-3 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 rounded-lg font-bold transition backdrop-blur-md"
-                        >
-                            Leave Match
-                        </button>
-                    </div>
-                </div>
-
-                <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-                    {/* Players Panel */}
-                    <div className="lg:col-span-1 flex flex-col gap-4 animate-slide-up">
-                        <div className="glass-effect rounded-xl p-4 shadow-lg">
-                            <h3 className="text-xs text-gray-400 uppercase font-bold tracking-wider mb-3">Players</h3>
-                            <div className="flex flex-col gap-2">
+                        {/* Players Panel */}
+                        <div className="glass-effect rounded-xl p-4 shadow-lg flex-1">
+                            <h3 className="text-xs text-gray-400 uppercase font-bold tracking-wider mb-3">
+                                Players ({players.size})
+                            </h3>
+                            <div className="flex flex-col gap-2 max-h-[420px] overflow-y-auto pr-1">
                                 {Array.from(players.values()).map((player) => (
                                     <PlayerCard
                                         key={player.id}
@@ -356,10 +344,71 @@ const GamePage = () => {
                         </div>
                     </div>
 
-                    {/* Game Canvas */}
-                    <div className="lg:col-span-3 animate-slide-up" style={{ animationDelay: '100ms' }}>
-                        <div className="glass-effect rounded-xl p-6 shadow-lg">
-                            <div ref={gameRef} className="flex justify-center items-center"></div>
+                    {/* CENTER COLUMN: Game Canvas */}
+                    <div className="animate-slide-up order-1 lg:order-2" style={{ animationDelay: '75ms' }}>
+                        <div className="glass-effect rounded-xl p-4 lg:p-6 shadow-lg h-full flex">
+                            <div ref={gameRef} className="flex-1 flex items-center justify-center min-h-[480px]"></div>
+                        </div>
+                    </div>
+
+                    {/* RIGHT COLUMN: Queue */}
+                    <div className="flex flex-col gap-4 animate-slide-up order-3" style={{ animationDelay: '150ms' }}>
+                        {/* Queue Card */}
+                        <div className="glass-effect rounded-xl p-4 shadow-lg">
+                            <div className="text-xs text-gray-400 uppercase font-bold tracking-wider mb-3">Queue</div>
+                            
+                            {/* Ready Progress */}
+                            <div className="mb-4">
+                                <div className="flex justify-between items-center mb-2">
+                                    <span className="text-sm text-gray-300">Ready</span>
+                                    <span className="text-sm font-bold text-white">{readyCount}/{readinessTarget}</span>
+                                </div>
+                                <div className="h-2 bg-slate-700/50 rounded-full overflow-hidden">
+                                    <div 
+                                        className="h-full bg-gradient-to-r from-emerald-500 to-green-400 transition-all duration-300 rounded-full"
+                                        style={{ width: `${(readyCount / readinessTarget) * 100}%` }}
+                                    ></div>
+                                </div>
+                                <div className="text-xs text-gray-500 mt-1">
+                                    {readyStrategy === 'allPlayers' ? 'Everyone must be ready' : `Min ${minPlayers} players`}
+                                </div>
+                            </div>
+
+                            {/* Action Buttons */}
+                            <div className="flex flex-col gap-2">
+                                <button
+                                    onClick={handleToggleReady}
+                                    disabled={gameState === 'playing' || totalPlayers === 0}
+                                    className={`w-full px-4 py-2.5 rounded-lg font-semibold transition text-sm ${isReady
+                                        ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/40'
+                                        : 'bg-slate-700/60 text-slate-200 border border-slate-500/50 hover:bg-slate-600/60'
+                                        } ${gameState === 'playing' ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                >
+                                    {isReady ? '✅ Ready' : readyIdleLabel}
+                                </button>
+                                {currentRoom?.sessionId === roomOwner && (
+                                    <button
+                                        onClick={handleStartMatch}
+                                        disabled={!canStartMatch}
+                                        className={`w-full px-4 py-2.5 rounded-lg font-semibold transition text-sm ${canStartMatch
+                                            ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 shadow-lg shadow-blue-500/25'
+                                            : 'bg-slate-700/60 text-slate-400 cursor-not-allowed border border-slate-600/50'
+                                            }`}
+                                    >
+                                        🚀 Start Match
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Reserved space for future features */}
+                        <div className="glass-effect rounded-xl p-4 shadow-lg min-h-[120px] border border-dashed border-slate-600/70">
+                            <div className="text-xs text-gray-500 uppercase font-bold tracking-wider mb-1">
+                                Game Settings
+                            </div>
+                            <p className="text-sm text-slate-400">
+                                Coming soon...
+                            </p>
                         </div>
                     </div>
                 </div>
