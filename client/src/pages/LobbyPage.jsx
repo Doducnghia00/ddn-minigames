@@ -88,7 +88,7 @@ const LobbyPage = () => {
         const resolvedPassword = (newRoomPassword ?? '').trim() || defaultOptions.password || '';
 
         try {
-            const room = await client.joinOrCreate(selectedGameId, {
+            const room = await client.create(selectedGameId, {
                 ...defaultOptions,
                 roomName: resolvedRoomName,
                 password: resolvedPassword,

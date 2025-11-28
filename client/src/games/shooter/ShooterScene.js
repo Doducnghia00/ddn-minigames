@@ -600,9 +600,55 @@ export class ShooterScene extends FreeForAllGameScene {
         this.playerInterpolator.removeEntity(sessionId);
     }
 
+    /**
+     * Cleanup all sprites and effects when game restarts
+     */
+    cleanupAllSprites() {
+        console.log('[ShooterScene] Cleaning up all sprites for game restart...');
+
+        // Destroy all player sprites
+        for (const [sessionId, playerObj] of this.playerSprites.entries()) {
+            if (playerObj) {
+                playerObj.sprite.destroy();
+                playerObj.directionIndicator.destroy();
+                playerObj.nameText.destroy();
+                playerObj.healthBarBg.destroy();
+                playerObj.healthBar.destroy();
+            }
+        }
+        this.playerSprites.clear();
+
+        // Destroy all bullet sprites
+        for (const sprite of this.bulletSprites.values()) {
+            if (sprite) {
+                sprite.destroy();
+            }
+        }
+        this.bulletSprites.clear();
+
+        // Clear interpolators
+        if (this.playerInterpolator) {
+            this.playerInterpolator.clear();
+        }
+        if (this.bulletInterpolator) {
+            this.bulletInterpolator.clear();
+        }
+
+        // Kill all active tweens (animations)
+        this.tweens.killAll();
+
+        // Note: We don't destroy HUD elements (timer, health bar, leaderboard, etc.)
+        // as they are persistent UI that just needs updating
+    }
+
     onGameStateChanged(newState, oldState) {
         // console.log('[ShooterScene] Game state:', newState);
         this.gameState = newState;
+
+        // When game restarts, cleanup all old sprites and effects
+        if (newState === 'playing' && (oldState === 'finished' || oldState === 'waiting')) {
+            this.cleanupAllSprites();
+        }
 
         // Hide end-game scoreboard when game restarts
         if (newState === 'playing' && this.endGameUI) {
