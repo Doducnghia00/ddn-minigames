@@ -7,6 +7,7 @@ import { getGameConfig, GAME_REGISTRY, DEFAULT_GAME_ID } from '../config/gameReg
 import { getMergedGameProfile } from '../config/gameProfiles';
 import PlayerCard from '../components/games/PlayerCard';
 import Modal from '../components/ui/Modal';
+import NetworkMonitor from '../components/ui/NetworkMonitor';
 
 const GamePage = () => {
     const navigate = useNavigate();
@@ -25,6 +26,7 @@ const GamePage = () => {
     const [isReady, setIsReady] = useState(false);
     const [readyCount, setReadyCount] = useState(0);
     const [kickModal, setKickModal] = useState({ isOpen: false, message: '' });
+    const [showNetworkMonitor, setShowNetworkMonitor] = useState(false);
 
     useEffect(() => {
         hasNavigatedRef.current = false;
@@ -311,12 +313,21 @@ const GamePage = () => {
                         </div>
                     </div>
 
-                    <button
-                        onClick={handleLeave}
-                        className="px-6 py-3 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 rounded-lg font-bold transition backdrop-blur-md"
-                    >
-                        Leave Match
-                    </button>
+                    <div className="flex gap-2">
+                        <button
+                            onClick={() => setShowNetworkMonitor(!showNetworkMonitor)}
+                            className="px-4 py-3 bg-slate-700/50 hover:bg-slate-600/50 text-slate-300 border border-slate-500/30 rounded-lg font-bold transition backdrop-blur-md"
+                            title="Toggle Network Monitor"
+                        >
+                            📊
+                        </button>
+                        <button
+                            onClick={handleLeave}
+                            className="px-6 py-3 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 rounded-lg font-bold transition backdrop-blur-md"
+                        >
+                            Leave Match
+                        </button>
+                    </div>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
@@ -362,6 +373,12 @@ const GamePage = () => {
                 message={kickModal.message}
                 icon="🚫"
                 type="error"
+            />
+
+            {/* Network Monitor */}
+            <NetworkMonitor 
+                room={currentRoom} 
+                enabled={showNetworkMonitor}
             />
         </div>
     );

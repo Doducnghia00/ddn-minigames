@@ -23,6 +23,10 @@ class FreeForAllRoom extends BaseRoom {
         this.gameLoopInterval = null;
         this.elapsedTime = 0;
 
+        // Timer optimization - sync less frequently
+        this.lastTimerSync = 0;
+        this.timerSyncInterval = 1000; // Sync timer every 1000ms (1 FPS) instead of 60 FPS
+
         // Sync config to state
         this.state.matchTimer = this.matchDuration;
         this.state.scoreLimit = this.scoreLimit;
@@ -69,9 +73,20 @@ class FreeForAllRoom extends BaseRoom {
 
         // Start game loop at 60 FPS
         const TICK_RATE = 60;
-        this.gameLoopInterval = this.clock.setInterval(() => {
+        
+        // DEBUG: Track actual time to verify tick rate
+        this.gameStartTime = Date.now();
+        this.tickCount = 0;
+        
+        // CRITICAL FIX: Use Node.js setInterval instead of this.clock.setInterval
+        // Colyseus clock is synchronized with patch rate, causing timer to run slow
+        // when patch rate is reduced (e.g., 30 FPS patch = timer runs at 50% speed)
+        // Native setInterval ensures game loop runs at true 60 FPS regardless of patch rate
+        this.gameLoopInterval = setInterval(() => {
             this.gameLoop(1 / TICK_RATE);
         }, 1000 / TICK_RATE);
+
+        console.log(`[FreeForAllRoom] Game started - Match duration: ${this.matchDuration}s, Tick rate: ${TICK_RATE} FPS`);
 
         this.broadcast('match_started', {
             matchDuration: this.matchDuration,
@@ -86,16 +101,33 @@ class FreeForAllRoom extends BaseRoom {
     gameLoop(deltaTime) {
         if (this.state.gameState !== 'playing') return;
 
-        // Update timer
+        // DEBUG: Count ticks and verify actual elapsed time
+        this.tickCount++;
+        
+        // Update timer internally
         this.elapsedTime += deltaTime;
         const newTimer = Math.max(0, this.matchDuration - this.elapsedTime);
 
-        // Debug: Log every 5 seconds to check if timer is accurate
-        if (Math.floor(this.state.matchTimer / 5) !== Math.floor(newTimer / 5)) {
-            console.log(`[FreeForAllRoom] Timer: ${Math.floor(newTimer)}s (elapsed: ${this.elapsedTime.toFixed(1)}s, deltaTime: ${deltaTime.toFixed(4)}s)`);
-        }
+        // OPTIMIZATION: Only sync timer to state every 1 second instead of 60 times/second
+        // This reduces state updates by ~98% (60 FPS -> 1 FPS for timer)
+        const now = Date.now();
+        if (now - this.lastTimerSync >= this.timerSyncInterval) {
+            this.state.matchTimer = newTimer;
+            this.lastTimerSync = now;
 
-        this.state.matchTimer = newTimer;
+            // DEBUG: Verify timer accuracy every 5 seconds
+            const actualElapsed = (now - this.gameStartTime) / 1000;
+            const timerDiff = Math.abs(this.elapsedTime - actualElapsed);
+            
+            if (Math.floor(newTimer) % 5 === 0) {
+                console.log(`[FreeForAllRoom] Timer: ${Math.floor(newTimer)}s | Ticks: ${this.tickCount} | Internal elapsed: ${this.elapsedTime.toFixed(2)}s | Actual elapsed: ${actualElapsed.toFixed(2)}s | Diff: ${timerDiff.toFixed(3)}s`);
+            }
+            
+            // WARNING: If timer drift is > 1 second, something is wrong
+            if (timerDiff > 1.0) {
+                console.warn(`[FreeForAllRoom] ⚠️ TIMER DRIFT DETECTED! Internal: ${this.elapsedTime.toFixed(2)}s vs Actual: ${actualElapsed.toFixed(2)}s (diff: ${timerDiff.toFixed(2)}s)`);
+            }
+        }
 
         // Check win conditions
         if (this.checkWinCondition()) {
@@ -141,9 +173,9 @@ class FreeForAllRoom extends BaseRoom {
     endMatch() {
         this.state.gameState = 'finished';
 
-        // Stop game loop
+        // Stop game loop (native setInterval)
         if (this.gameLoopInterval) {
-            this.gameLoopInterval.clear();
+            clearInterval(this.gameLoopInterval);
             this.gameLoopInterval = null;
         }
 
@@ -216,7 +248,8 @@ class FreeForAllRoom extends BaseRoom {
      */
     onDispose() {
         if (this.gameLoopInterval) {
-            this.gameLoopInterval.clear();
+            // Clear native setInterval (not Colyseus clock)
+            clearInterval(this.gameLoopInterval);
             this.gameLoopInterval = null;
         }
     }

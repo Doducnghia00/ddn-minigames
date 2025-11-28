@@ -10,7 +10,8 @@ const SHOOTER_CONFIG = {
     match: {
         scoreLimit: 5,              // Kills needed to win (default: 8)
         matchDuration: 300,         // Match duration in seconds (default: 120 = 2 minutes)
-        patchRate: 16.67,           // State sync rate in ms (16.67 = 60 FPS)
+        patchRate: 16.67,           // 60 FPS - WORKAROUND for stutter issue (see docs/ISSUE-stuttering-investigation.md)
+                                    // Ideally should be 33.33 (30 FPS) for bandwidth, but causes stutter on high refresh monitors
         minPlayers: 2,              // Minimum players to start
         maxPlayers: 8,              // Maximum players in room
     },
@@ -32,9 +33,9 @@ const SHOOTER_CONFIG = {
 
     // ===== WEAPON SETTINGS =====
     weapon: {
-        fireRate: 500,              // Milliseconds between shots (300ms = ~3.3 shots/sec)
-        bulletSpeed: 300,           // Bullet travel speed (pixels/second)
-        bulletDamage: 33,           // Damage per bullet hit
+        fireRate: 800,              // Milliseconds between shots (300ms = ~3.3 shots/sec)
+        bulletSpeed: 500,           // Bullet travel speed (pixels/second)
+        bulletDamage: 25,           // Damage per bullet hit
         bulletLifetime: 3,          // Max bullet lifetime in seconds
     },
 

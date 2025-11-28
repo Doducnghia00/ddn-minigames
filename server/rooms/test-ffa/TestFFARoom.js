@@ -15,8 +15,9 @@ class TestFFARoom extends FreeForAllRoom {
         this.state.matchTimer = this.matchDuration;
         this.state.scoreLimit = this.scoreLimit;
 
-        // Register test message handlers
+        // Register test message handlers with rate limiting
         this.onMessage('add_score', (client, message) => {
+            if (!this.checkRateLimit(client)) return;
             this.handleAddScore(client, message);
         });
     }

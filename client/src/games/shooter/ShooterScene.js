@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { FreeForAllGameScene } from '../base/FreeForAllGameScene';
+import { EntityInterpolator } from '../base/EntityInterpolator';
 
 /**
  * ShooterScene - Client-side scene for Arena Shooter game
@@ -16,6 +17,20 @@ export class ShooterScene extends FreeForAllGameScene {
         // Input
         this.keys = {};
         this.isMoving = { up: false, down: false, left: false, right: false };
+
+        // Client-side prediction
+        this.enablePrediction = true;
+        this.predictedPosition = { x: 0, y: 0 };
+        this.lastServerPosition = { x: 0, y: 0 };
+        this.predictionVelocity = { x: 0, y: 0 };
+
+        // Entity interpolation for remote players and bullets
+        this.playerInterpolator = new EntityInterpolator(100); // 100ms render delay
+        this.bulletInterpolator = new EntityInterpolator(50);  // 50ms for faster bullets
+
+        // Input batching - batch multiple inputs into single message
+        this.lastInputSent = 0;
+        this.inputSendRate = 50; // Send batched input every 50ms (20 msg/s)
     }
 
     init(data) {
@@ -27,6 +42,19 @@ export class ShooterScene extends FreeForAllGameScene {
 
         // Reset movement tracking
         this.currentMoveDirection = null;
+
+        // Reset prediction
+        this.predictedPosition = { x: 0, y: 0 };
+        this.lastServerPosition = { x: 0, y: 0 };
+        this.predictionVelocity = { x: 0, y: 0 };
+
+        // Reset interpolators
+        if (this.playerInterpolator) {
+            this.playerInterpolator.clear();
+        }
+        if (this.bulletInterpolator) {
+            this.bulletInterpolator.clear();
+        }
     }
 
     create() {
@@ -42,6 +70,8 @@ export class ShooterScene extends FreeForAllGameScene {
     setupServerMessages() {
         if (!this.room) return;
 
+        console.log('[ShooterScene] Setting up server messages...');
+
         // Listen to kill events
         this.room.onMessage('player_killed', (data) => {
             console.log('[ShooterScene] Player killed:', data);
@@ -51,6 +81,20 @@ export class ShooterScene extends FreeForAllGameScene {
         // Listen to respawn events
         this.room.onMessage('player_respawned', (data) => {
             console.log('[ShooterScene] Player respawned:', data.playerName);
+        });
+
+        // Listen to bullet creation (server-confirmed) for muzzle flash
+        this.room.state.bullets.onAdd((bullet) => {
+            console.log('[ShooterScene] Bullet added:', bullet.id, 'Owner:', bullet.ownerId, 'My sessionId:', this.room.sessionId);
+            
+            // Only show muzzle flash for bullets created by local player
+            if (bullet.ownerId === this.room.sessionId) {
+                const owner = this.room.state.players.get(bullet.ownerId);
+                console.log('[ShooterScene] Showing muzzle flash for my bullet at:', bullet.x, bullet.y);
+                if (owner) {
+                    this.showMuzzleFlash(bullet.x, bullet.y, bullet.rotation);
+                }
+            }
         });
     }
 
@@ -368,7 +412,7 @@ export class ShooterScene extends FreeForAllGameScene {
     }
 
     /**
-     * Handle player input
+     * Handle player input with client-side prediction and batching
      */
     handleInput() {
         if (!this.room || this.gameState !== 'playing') return;
@@ -395,23 +439,54 @@ export class ShooterScene extends FreeForAllGameScene {
             moveDirection = right && (up || down) ? moveDirection : 'right';
         }
 
-        // Send movement update if direction changed
-        if (moveDirection !== this.currentMoveDirection) {
+        // CLIENT-SIDE PREDICTION: Update local velocity immediately
+        if (this.enablePrediction) {
+            const speed = 200; // Match server's playerSpeed
+
+            this.predictionVelocity.x = 0;
+            this.predictionVelocity.y = 0;
+
             if (moveDirection) {
-                this.room.send('move', { direction: moveDirection });
-            } else {
-                this.room.send('stop_move');
+                switch (moveDirection) {
+                    case 'up':
+                        this.predictionVelocity.y = -speed;
+                        break;
+                    case 'down':
+                        this.predictionVelocity.y = speed;
+                        break;
+                    case 'left':
+                        this.predictionVelocity.x = -speed;
+                        break;
+                    case 'right':
+                        this.predictionVelocity.x = speed;
+                        break;
+                }
             }
-            this.currentMoveDirection = moveDirection;
         }
 
-        // Aim towards mouse (send every frame for smooth rotation)
+        // Calculate rotation
         const pointer = this.input.activePointer;
         const rotation = Phaser.Math.Angle.Between(
             myPlayer.x, myPlayer.y,
             pointer.x, pointer.y
         );
-        this.room.send('move', { rotation });
+
+        // INPUT BATCHING: Batch movement + rotation into single message
+        // Only send if enough time has passed OR direction changed
+        const now = Date.now();
+        const shouldSendBatch = (now - this.lastInputSent) >= this.inputSendRate;
+        const directionChanged = moveDirection !== this.currentMoveDirection;
+
+        if (shouldSendBatch || directionChanged) {
+            // Send batched input (movement + rotation in one message)
+            this.room.send('move', {
+                direction: moveDirection,
+                rotation: rotation
+            });
+
+            this.lastInputSent = now;
+            this.currentMoveDirection = moveDirection;
+        }
     }
 
     /**
@@ -429,10 +504,12 @@ export class ShooterScene extends FreeForAllGameScene {
             pointer.x, pointer.y
         );
 
+        // Send shoot request to server
         this.room.send('shoot', { rotation });
 
-        // Show muzzle flash effect
-        this.showMuzzleFlash(myPlayer.x, myPlayer.y, rotation);
+        // FIX: Removed muzzle flash from here - now triggered by bullets.onAdd
+        // This ensures animation only plays when server confirms bullet creation
+        // Respects fireRate limiting (no animation spam when clicking fast)
     }
 
     // ========== FFA Scene Hooks ==========
@@ -526,6 +603,9 @@ export class ShooterScene extends FreeForAllGameScene {
             playerObj.healthBar.destroy();
             this.playerSprites.delete(sessionId);
         }
+
+        // Remove from interpolator
+        this.playerInterpolator.removeEntity(sessionId);
     }
 
     onGameStateChanged(newState, oldState) {
@@ -870,6 +950,8 @@ export class ShooterScene extends FreeForAllGameScene {
     updatePlayerSprites() {
         if (!this.room) return;
 
+        const isMe = (sessionId) => sessionId === this.room.sessionId;
+
         this.room.state.players.forEach((player, sessionId) => {
             let playerObj = this.playerSprites.get(sessionId);
 
@@ -893,16 +975,57 @@ export class ShooterScene extends FreeForAllGameScene {
 
             const { sprite, directionIndicator, nameText, healthBarBg, healthBar } = playerObj;
 
+            let displayX = player.x;
+            let displayY = player.y;
+            let displayRotation = player.rotation;
+
+            if (isMe(sessionId) && this.enablePrediction && player.isAlive) {
+                // CLIENT-SIDE PREDICTION for local player
+                const deltaTime = this.game.loop.delta / 1000; // Convert ms to seconds
+                
+                this.predictedPosition.x = player.x + this.predictionVelocity.x * deltaTime;
+                this.predictedPosition.y = player.y + this.predictionVelocity.y * deltaTime;
+
+                // Simple reconciliation: blend towards server position
+                const reconciliationFactor = 0.2; // How fast to correct (0-1)
+                displayX = Phaser.Math.Linear(this.predictedPosition.x, player.x, reconciliationFactor);
+                displayY = Phaser.Math.Linear(this.predictedPosition.y, player.y, reconciliationFactor);
+
+                // Update predicted position
+                this.predictedPosition.x = displayX;
+                this.predictedPosition.y = displayY;
+
+                // Track server position for debugging
+                this.lastServerPosition.x = player.x;
+                this.lastServerPosition.y = player.y;
+            } else {
+                // ENTITY INTERPOLATION for remote players
+                // Add server snapshot
+                this.playerInterpolator.addSnapshot(sessionId, {
+                    x: player.x,
+                    y: player.y,
+                    rotation: player.rotation
+                });
+
+                // Get interpolated position
+                const interpolated = this.playerInterpolator.getInterpolated(sessionId);
+                if (interpolated) {
+                    displayX = interpolated.x;
+                    displayY = interpolated.y;
+                    displayRotation = interpolated.rotation;
+                }
+            }
+
             // Update position
-            sprite.setPosition(player.x, player.y);
-            nameText.setPosition(player.x, player.y - 35);
-            healthBarBg.setPosition(player.x, player.y + 30);
-            healthBar.setPosition(player.x - 20, player.y + 30);
+            sprite.setPosition(displayX, displayY);
+            nameText.setPosition(displayX, displayY - 35);
+            healthBarBg.setPosition(displayX, displayY + 30);
+            healthBar.setPosition(displayX - 20, displayY + 30);
 
             // Update direction indicator position based on rotation
             const indicatorDistance = 20; // Same as player radius
-            const indicatorX = player.x + Math.cos(player.rotation) * indicatorDistance;
-            const indicatorY = player.y + Math.sin(player.rotation) * indicatorDistance;
+            const indicatorX = displayX + Math.cos(displayRotation) * indicatorDistance;
+            const indicatorY = displayY + Math.sin(displayRotation) * indicatorDistance;
             directionIndicator.setPosition(indicatorX, indicatorY);
 
             // Update health bar
@@ -953,10 +1076,11 @@ export class ShooterScene extends FreeForAllGameScene {
             if (!exists) {
                 sprite.destroy();
                 this.bulletSprites.delete(bulletId);
+                this.bulletInterpolator.removeEntity(bulletId);
             }
         }
 
-        // Add/update bullets
+        // Add/update bullets with interpolation
         this.room.state.bullets.forEach(bullet => {
             let sprite = this.bulletSprites.get(bullet.id);
 
@@ -966,8 +1090,20 @@ export class ShooterScene extends FreeForAllGameScene {
                 this.bulletSprites.set(bullet.id, sprite);
             }
 
-            // Update position
-            sprite.setPosition(bullet.x, bullet.y);
+            // Add server snapshot for interpolation
+            this.bulletInterpolator.addSnapshot(bullet.id, {
+                x: bullet.x,
+                y: bullet.y
+            });
+
+            // Get interpolated position
+            const interpolated = this.bulletInterpolator.getInterpolated(bullet.id);
+            if (interpolated) {
+                sprite.setPosition(interpolated.x, interpolated.y);
+            } else {
+                // Fallback to server position
+                sprite.setPosition(bullet.x, bullet.y);
+            }
         });
     }
 
@@ -994,8 +1130,9 @@ export class ShooterScene extends FreeForAllGameScene {
         // Update K/D
         this.kdText.setText(`⚔️ ${myPlayer.kills || 0}  💀 ${myPlayer.deaths || 0}`);
 
-        // Show death/spectating message
-        if (!myPlayer.isAlive) {
+        // Show death/spectating message - CHỈ khi game đang playing
+        // FIX: Trước đây thiếu check gameState, nên hiện "You died" ngay khi vào phòng
+        if (this.gameState === 'playing' && !myPlayer.isAlive) {
             if (myPlayer.isSpectator) {
                 // Mid-game join - spectating
                 if (!this.deathMessage || this.deathMessage.text !== '👁️ Spectating...') {
@@ -1031,7 +1168,7 @@ export class ShooterScene extends FreeForAllGameScene {
                 }
             }
         } else {
-            // Alive - clear death message
+            // Not playing OR alive - clear death message
             if (this.deathMessage) {
                 this.deathMessage.destroy();
                 this.deathMessage = null;
@@ -1316,6 +1453,14 @@ export class ShooterScene extends FreeForAllGameScene {
                 if (entry.text && entry.text.destroy) entry.text.destroy();
             });
             this.killFeedEntries = [];
+        }
+
+        // Cleanup interpolators
+        if (this.playerInterpolator) {
+            this.playerInterpolator.clear();
+        }
+        if (this.bulletInterpolator) {
+            this.bulletInterpolator.clear();
         }
 
         super.shutdown();

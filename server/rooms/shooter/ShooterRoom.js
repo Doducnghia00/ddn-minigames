@@ -3,6 +3,8 @@ const { ShooterState } = require('./ShooterState');
 const { ShooterPlayer } = require('./ShooterPlayer');
 const { Bullet } = require('./Bullet');
 const { SHOOTER_CONFIG } = require('./shooter-config');
+const { InputBuffer } = require('../base/InputBuffer');
+const { SpatialGrid } = require('../base/SpatialGrid');
 
 /**
  * ShooterRoom - Top-down Arena Shooter
@@ -28,12 +30,36 @@ class ShooterRoom extends FreeForAllRoom {
 
         this.nextBulletId = 0;
 
-        // Increase state sync rate for smoother updates
+        // Initialize input buffer for throttling (50ms = 20 msg/s)
+        this.inputBuffer = new InputBuffer(50);
+
+        // Initialize spatial grid for optimized collision detection
+        // 800x600 arena with 100px cells = 8x6 grid (48 cells)
+        this.spatialGrid = new SpatialGrid(
+            SHOOTER_CONFIG.arena.width, 
+            SHOOTER_CONFIG.arena.height, 
+            100
+        );
+
+        // Scheduled bullet cleanup (every 500ms instead of every frame)
+        this.bulletCleanupInterval = null;
+
+        // Broadcast filtering - throttle non-critical broadcasts
+        this.lastRespawnBroadcast = new Map(); // Track last respawn broadcast per player
+        this.broadcastThrottle = 1000; // Minimum ms between similar broadcasts
+
+        // Set patch rate for state sync (30 FPS = 33.33ms)
+        // Note: This should NOT affect simulation speed (FreeForAllRoom runs game loop at 60 FPS)
         this.setPatchRate(SHOOTER_CONFIG.match.patchRate);
 
         // Register shooter-specific message handlers
+        // Note: Movement is now buffered and processed in game loop
         this.onMessage('move', (client, data) => {
-            this.handleMove(client, data);
+            // Add to input buffer instead of processing immediately
+            this.inputBuffer.addInput(client.sessionId, {
+                type: 'move',
+                data
+            });
         });
 
         this.onMessage('shoot', (client, data) => {
@@ -58,6 +84,18 @@ class ShooterRoom extends FreeForAllRoom {
     onDispose() {
         console.log('[ShooterRoom] Room disposing:', this.roomId);
         console.log('[ShooterRoom] Players at dispose:', this.state?.players?.size);
+        
+        // Clear input buffer
+        if (this.inputBuffer) {
+            this.inputBuffer.clear();
+        }
+
+        // Stop bullet cleanup interval (native interval)
+        if (this.bulletCleanupInterval) {
+            clearInterval(this.bulletCleanupInterval);
+            this.bulletCleanupInterval = null;
+        }
+        
         super.onDispose();
     }
 
@@ -155,6 +193,9 @@ class ShooterRoom extends FreeForAllRoom {
 
         console.log('[ShooterRoom] Player left - Remaining players:', this.state.players.size);
 
+        // Clear input buffer for this player
+        this.inputBuffer.clearPlayer(client.sessionId);
+
         // Reset readiness
         this.resetReadiness();
 
@@ -183,6 +224,15 @@ class ShooterRoom extends FreeForAllRoom {
         this.state.bullets.clear();
         this.nextBulletId = 0;
 
+        // Start scheduled bullet cleanup (every 500ms instead of every frame)
+        // Use native setInterval to avoid Colyseus clock sync issues
+        if (this.bulletCleanupInterval) {
+            clearInterval(this.bulletCleanupInterval);
+        }
+        this.bulletCleanupInterval = setInterval(() => {
+            this.cleanupBullets();
+        }, 500);
+
         // Spawn all players and clear spectator flags
         for (const [sessionId, player] of this.state.players) {
             player.isSpectator = false; // Everyone can play now
@@ -209,7 +259,7 @@ class ShooterRoom extends FreeForAllRoom {
     /**
      * Handle player movement input
      * @param {Client} client 
-     * @param {Object} data - { direction: 'up'|'down'|'left'|'right', rotation?: number }
+     * @param {Object} data - { direction: 'up'|'down'|'left'|'right'|null, rotation?: number }
      */
     handleMove(client, data) {
         if (this.state.gameState !== 'playing') return;
@@ -219,6 +269,11 @@ class ShooterRoom extends FreeForAllRoom {
 
         const { direction, rotation } = data;
         const speed = this.state.playerSpeed;
+
+        // ALWAYS reset velocity first, then apply movement if direction exists
+        // This fixes the issue where releasing keys doesn't stop the player
+        player.velocityX = 0;
+        player.velocityY = 0;
 
         // Handle directional movement
         if (direction) {
@@ -299,6 +354,9 @@ class ShooterRoom extends FreeForAllRoom {
         // Safety check - only update if game is still playing
         if (this.state.gameState !== 'playing') return;
 
+        // Process buffered inputs (throttled to 20 msg/s per player)
+        this.processBufferedInputs();
+
         // Update player positions
         this.updatePlayerPositions(deltaTime);
 
@@ -308,8 +366,22 @@ class ShooterRoom extends FreeForAllRoom {
         // Check bullet-player collisions
         this.checkCollisions();
 
-        // Remove expired bullets
-        this.cleanupBullets();
+        // Note: Bullet cleanup now runs on a schedule (every 500ms) instead of every frame
+        // This reduces unnecessary checks from 60/s to 2/s
+    }
+
+    /**
+     * Process buffered player inputs
+     */
+    processBufferedInputs() {
+        this.inputBuffer.processInputs((sessionId, input) => {
+            const client = Array.from(this.clients).find(c => c.sessionId === sessionId);
+            if (!client) return;
+
+            if (input.type === 'move') {
+                this.handleMove(client, input.data);
+            }
+        });
     }
 
     /**
@@ -346,24 +418,53 @@ class ShooterRoom extends FreeForAllRoom {
     }
 
     /**
-     * Check collisions between bullets and players
+     * Check collisions between bullets and players using spatial grid
+     * OLD: O(N×M) - check every bullet against every player
+     * NEW: O(N+M) - only check bullets against nearby players
      */
     checkCollisions() {
         // Safety check - if game ended during this function, stop processing
         if (this.state.gameState !== 'playing') return;
 
-        // Iterate backwards to safely remove bullets
+        // Clear and populate spatial grid
+        this.spatialGrid.clear();
+
+        // Insert all alive players into grid
+        for (const [playerId, player] of this.state.players) {
+            if (!player.isAlive) continue;
+            this.spatialGrid.insert(
+                player.x, 
+                player.y, 
+                SHOOTER_CONFIG.player.hitboxRadius,
+                'player',
+                { id: playerId, player }
+            );
+        }
+
+        // Check each bullet against nearby players only
         for (let i = this.state.bullets.length - 1; i >= 0; i--) {
             const bullet = this.state.bullets[i];
 
-            // Safety check - bullet might be undefined if bullets were cleared
+            // Safety check
             if (!bullet) continue;
 
-            for (const [playerId, player] of this.state.players) {
-                if (!player.isAlive) continue;
-                if (playerId === bullet.ownerId) continue; // Can't hit self
+            // Query spatial grid for nearby players
+            const nearbyEntities = this.spatialGrid.query(
+                bullet.x, 
+                bullet.y, 
+                SHOOTER_CONFIG.player.hitboxRadius,
+                'player'
+            );
 
-                // Circle collision detection
+            let bulletHit = false;
+
+            for (const entity of nearbyEntities) {
+                const { id: playerId, player } = entity.data;
+
+                // Can't hit self
+                if (playerId === bullet.ownerId) continue;
+
+                // Precise circle collision detection
                 const dx = bullet.x - player.x;
                 const dy = bullet.y - player.y;
                 const distance = Math.sqrt(dx * dx + dy * dy);
@@ -375,6 +476,7 @@ class ShooterRoom extends FreeForAllRoom {
 
                     // Remove bullet
                     this.state.bullets.splice(i, 1);
+                    bulletHit = true;
                     break; // Bullet can only hit one player
                 }
             }
@@ -382,6 +484,8 @@ class ShooterRoom extends FreeForAllRoom {
             // Check again if game is still playing after each collision check
             // (handlePlayerHit might have ended the match)
             if (this.state.gameState !== 'playing') return;
+
+            if (bulletHit) continue;
         }
     }
 
@@ -432,13 +536,15 @@ class ShooterRoom extends FreeForAllRoom {
         }
 
         // Schedule respawn (only if match still ongoing)
-        this.clock.setTimeout(() => {
+        // Use native setTimeout to avoid Colyseus clock sync issues
+        setTimeout(() => {
             if (this.state.gameState === 'playing') {
                 this.respawnPlayer(victimId);
             }
         }, this.state.respawnDelay * 1000);
 
-        // Notify clients
+        // BROADCAST FILTERING: Only broadcast kill events (critical information)
+        // State sync already handles player death/stats, so broadcast is for UI notifications only
         this.broadcast('player_killed', {
             victim: victimId,
             killer: killerId,
@@ -458,10 +564,19 @@ class ShooterRoom extends FreeForAllRoom {
 
         console.log(`[ShooterRoom] ${player.name} respawned`);
 
-        this.broadcast('player_respawned', {
-            playerId: playerId,
-            playerName: player.name
-        });
+        // BROADCAST FILTERING: Throttle respawn notifications
+        // State sync already handles respawn position/health, broadcast is optional
+        const now = Date.now();
+        const lastBroadcast = this.lastRespawnBroadcast.get(playerId) || 0;
+        
+        if (now - lastBroadcast >= this.broadcastThrottle) {
+            this.broadcast('player_respawned', {
+                playerId: playerId,
+                playerName: player.name
+            });
+            this.lastRespawnBroadcast.set(playerId, now);
+        }
+        // If throttled, clients will still see the respawn via state sync
     }
 
     /**
@@ -495,6 +610,12 @@ class ShooterRoom extends FreeForAllRoom {
      */
     onMatchEnd() {
         console.log('[ShooterRoom] Match ended');
+
+        // Stop scheduled bullet cleanup (native interval)
+        if (this.bulletCleanupInterval) {
+            clearInterval(this.bulletCleanupInterval);
+            this.bulletCleanupInterval = null;
+        }
 
         // Stop all player movement and reset states
         for (const [, player] of this.state.players) {

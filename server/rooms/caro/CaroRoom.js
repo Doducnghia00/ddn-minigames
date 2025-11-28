@@ -6,7 +6,9 @@ class CaroRoom extends TurnBasedRoom {
     onCreate(options) {
         super.onCreate(options);
 
+        // Apply rate limiting from BaseRoom (inherited)
         this.onMessage("move", (client, message = {}) => {
+            if (!this.checkRateLimit(client)) return;
             this.handleMove(client, message);
         });
     }

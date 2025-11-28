@@ -8,6 +8,10 @@ class BaseRoom extends Room {
         this.minPlayers = this.getMinPlayers();
         this.maxClients = this.getMaxClients();
 
+        // Message rate limiting - prevent spam/abuse
+        this.messageRateLimits = new Map(); // sessionId -> { count, resetTime }
+        this.maxMessagesPerSecond = 50; // Generous limit to prevent abuse
+
         this.setState(this.createInitialState(options));
         this.roomMetadata = this.buildMetadata(options);
         this.setMetadata(this.roomMetadata);
@@ -24,20 +28,50 @@ class BaseRoom extends Room {
         };
     }
 
+    /**
+     * Check if client is within rate limit
+     * @returns {boolean} True if allowed, false if rate limited
+     */
+    checkRateLimit(client) {
+        const now = Date.now();
+        const limit = this.messageRateLimits.get(client.sessionId);
+
+        if (!limit || now > limit.resetTime) {
+            // Reset counter
+            this.messageRateLimits.set(client.sessionId, {
+                count: 1,
+                resetTime: now + 1000
+            });
+            return true;
+        }
+
+        if (limit.count >= this.maxMessagesPerSecond) {
+            console.warn(`[BaseRoom] Rate limit exceeded for client ${client.sessionId}`);
+            return false;
+        }
+
+        limit.count++;
+        return true;
+    }
+
     registerBaseMessageHandlers() {
         this.onMessage("toggle_ready", (client, message) => {
+            if (!this.checkRateLimit(client)) return;
             this.handleToggleReady(client, message?.ready);
         });
 
         this.onMessage("start_match", (client) => {
+            if (!this.checkRateLimit(client)) return;
             this.handleStartMatch(client);
         });
 
         this.onMessage("kick_player", (client, payload = {}) => {
+            if (!this.checkRateLimit(client)) return;
             this.handleKickPlayer(client, payload.targetId);
         });
 
         this.onMessage("change_password", (client, payload = {}) => {
+            if (!this.checkRateLimit(client)) return;
             this.handleChangePassword(client, payload.newPassword);
         });
     }
@@ -100,6 +134,9 @@ class BaseRoom extends Room {
 
     onLeave(client) {
         this.state.players.delete(client.sessionId);
+
+        // Clean up rate limit tracking
+        this.messageRateLimits.delete(client.sessionId);
 
         if (this.state.roomOwner === client.sessionId) {
             this.assignNextOwner();
@@ -210,6 +247,8 @@ class BaseRoom extends Room {
         };
         this.setMetadata(this.roomMetadata);
 
+        // BROADCAST FILTERING: Password change is low-frequency, keep broadcast
+        // (Happens rarely, so not a performance concern)
         this.broadcast("password_changed", { isLocked: !!newPassword });
     }
 
