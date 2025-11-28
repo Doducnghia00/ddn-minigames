@@ -129,13 +129,21 @@ class ShooterRoom extends FreeForAllRoom {
 
         console.log('[ShooterRoom] Player joined:', player.name, '- Total players:', this.state.players.size);
 
-        // Reset all players' readiness when someone new joins
-        // (consistent with Caro behavior)
-        this.resetReadiness();
+        // If joining mid-match, set as spectator
+        if (this.state.gameState === 'playing') {
+            player.isSpectator = true;
+            player.isAlive = false;
+            console.log('[ShooterRoom] Mid-game join - player set as spectator:', player.name);
+        } else {
+            // Normal join
+            player.isSpectator = false;
+            // Reset all players' readiness when someone new joins (consistent with Caro behavior)
+            this.resetReadiness();
 
-        // If not enough players and not playing, ensure waiting state
-        if (this.state.players.size < this.getMinPlayers() && this.state.gameState !== 'playing') {
-            this.state.gameState = 'waiting';
+            // If not enough players and not playing, ensure waiting state
+            if (this.state.players.size < this.getMinPlayers()) {
+                this.state.gameState = 'waiting';
+            }
         }
     }
 
@@ -169,10 +177,11 @@ class ShooterRoom extends FreeForAllRoom {
     onGameStart() {
         super.onGameStart();
 
-        console.log('[ShooterRoom] Match started');
+        console.log('[ShooterRoom] Match starting - spawning players');
 
-        // Spawn all players at random positions
-        for (const [, player] of this.state.players) {
+        // Reset spectator flags and spawn all players
+        for (const [sessionId, player] of this.state.players) {
+            player.isSpectator = false; // Former spectators can now play
             this.spawnPlayer(player);
         }
 

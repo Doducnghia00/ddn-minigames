@@ -165,7 +165,6 @@ class BaseRoom extends Room {
         }
 
         this.resetReadiness();
-        this.clearRematchVotes();
         this.state.winner = "";
         this.state.gameState = "playing";
 

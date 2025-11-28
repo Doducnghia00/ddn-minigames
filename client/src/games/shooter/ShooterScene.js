@@ -118,7 +118,7 @@ export class ShooterScene extends FreeForAllGameScene {
         const height = this.cameras.main.height;
 
         // ====== TOP CENTER: TIMER + SCORE LIMIT ======
-        
+
         // Timer text with icon (no background panel - cleaner look)
         // Centered both horizontally and vertically for alignment
         this.timerIcon = this.add.text(centerX - 50, 32, '⏱️', {
@@ -144,11 +144,11 @@ export class ShooterScene extends FreeForAllGameScene {
         }).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(101);
 
         // ====== TOP LEFT: PLAYER HEALTH + K/D ======
-        
+
         // Health panel background
         const healthPanelBg = this.add.rectangle(20, 20, 250, 90, 0x1a1a2e, 0.95)
             .setOrigin(0, 0).setScrollFactor(0).setDepth(100);
-        
+
         const healthPanelBorder = this.add.rectangle(20, 20, 250, 90)
             .setOrigin(0, 0).setScrollFactor(0).setDepth(100)
             .setStrokeStyle(2, 0x00ff88, 0.5);
@@ -163,7 +163,7 @@ export class ShooterScene extends FreeForAllGameScene {
         // Health bar background
         this.myHealthBarBg = this.add.rectangle(30, 55, 200, 16, 0x333333)
             .setOrigin(0, 0).setScrollFactor(0).setDepth(101);
-        
+
         // Health bar border
         this.add.rectangle(30, 55, 200, 16)
             .setOrigin(0, 0).setScrollFactor(0).setDepth(101)
@@ -188,11 +188,11 @@ export class ShooterScene extends FreeForAllGameScene {
         }).setOrigin(0, 0).setScrollFactor(0).setDepth(101);
 
         // ====== TOP RIGHT: LEADERBOARD ======
-        
+
         // Leaderboard background (same height as health panel for balance)
         const leaderboardBg = this.add.rectangle(width - 20, 20, 200, 90, 0x1a1a2e, 0.95)
             .setOrigin(1, 0).setScrollFactor(0).setDepth(100);
-        
+
         const leaderboardBorder = this.add.rectangle(width - 20, 20, 200, 90)
             .setOrigin(1, 0).setScrollFactor(0).setDepth(100)
             .setStrokeStyle(2, 0x00ff88, 0.5);
@@ -214,29 +214,33 @@ export class ShooterScene extends FreeForAllGameScene {
                 color: '#ffffff',
                 fontFamily: 'monospace'
             }).setOrigin(0, 0).setScrollFactor(0).setDepth(101);
-            
+
             this.leaderboardEntries.push(entry);
         }
 
         // ====== CENTER: CROSSHAIR (dynamic - follows mouse) ======
-        
+
         this.crosshair = this.add.graphics();
         this.crosshair.setDepth(1000).setScrollFactor(0);
 
-        // ====== BOTTOM CENTER: RESPAWN MESSAGE (hidden by default) ======
-        
-        this.respawnMessageBg = this.add.rectangle(centerX, height - 100, 400, 50, 0x8b0000, 0.95)
-            .setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(200).setVisible(false);
-        
-        this.respawnMessageBorder = this.add.rectangle(centerX, height - 100, 400, 50)
-            .setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(200)
-            .setStrokeStyle(3, 0xff0000).setVisible(false);
-        
-        this.respawnMessage = this.add.text(centerX, height - 100, '💀 ELIMINATED - Respawning...', {
+        // ====== BOTTOM CENTER: STATUS MESSAGES ======
+
+        // Background panel for messages (respawn/spectator)
+        this.statusMessageBg = this.add.rectangle(centerX, height - 60, 600, 60, 0x000000, 0.9)
+            .setOrigin(0.5).setScrollFactor(0).setDepth(100).setVisible(false);
+
+        this.statusMessageBorder = this.add.rectangle(centerX, height - 60, 600, 60)
+            .setOrigin(0.5).setScrollFactor(0).setDepth(100)
+            .setStrokeStyle(2, 0x00ff88, 0.7).setVisible(false);
+
+        // Status message text (respawn or spectating)
+        this.statusMessage = this.add.text(centerX, height - 60, '', {
             fontSize: '18px',
-            color: '#ffcccc',
-            fontStyle: 'bold'
-        }).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(201).setVisible(false);
+            color: '#ffffff',
+            fontStyle: 'bold',
+            stroke: '#000000',
+            strokeThickness: 3
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(101).setVisible(false);
     }
 
     /**
@@ -253,13 +257,13 @@ export class ShooterScene extends FreeForAllGameScene {
     showKillNotification(data) {
         const { victimName, killerName, victim: victimId, killer: killerId } = data;
         const isSuicide = victimId === killerId;
-        
+
         const width = this.cameras.main.width;
         const baseY = 120; // Below leaderboard (leaderboard ends at 110)
-        
+
         // Calculate Y position (stack from top)
         const yPos = baseY + this.killFeedEntries.length * 30;
-        
+
         // Create text (no background panel - cleaner look)
         let message;
         if (isSuicide) {
@@ -281,12 +285,12 @@ export class ShooterScene extends FreeForAllGameScene {
             text,
             createdAt: Date.now()
         };
-        
+
         this.killFeedEntries.push(entry);
 
         // Slide-in animation
         text.setX(width + 50);
-        
+
         this.tweens.add({
             targets: text,
             x: width - 30,
@@ -323,13 +327,13 @@ export class ShooterScene extends FreeForAllGameScene {
             onComplete: () => {
                 // Safely destroy if still exists
                 if (entry.text && entry.text.destroy) entry.text.destroy();
-                
+
                 // Remove from array
                 const index = this.killFeedEntries.indexOf(entry);
                 if (index > -1) {
                     this.killFeedEntries.splice(index, 1);
                 }
-                
+
                 // Reposition remaining entries
                 this.repositionKillFeed();
             }
@@ -341,12 +345,12 @@ export class ShooterScene extends FreeForAllGameScene {
      */
     repositionKillFeed() {
         const baseY = 120;
-        
+
         this.killFeedEntries.forEach((entry, index) => {
             if (!entry.text || !entry.text.scene) return;
-            
+
             const targetY = baseY + index * 30;
-            
+
             this.tweens.add({
                 targets: entry.text,
                 y: targetY,
@@ -430,7 +434,7 @@ export class ShooterScene extends FreeForAllGameScene {
         );
 
         this.room.send('shoot', { rotation });
-        
+
         // Show muzzle flash effect
         this.showMuzzleFlash(myPlayer.x, myPlayer.y, rotation);
     }
@@ -531,12 +535,12 @@ export class ShooterScene extends FreeForAllGameScene {
     onGameStateChanged(newState, oldState) {
         // console.log('[ShooterScene] Game state:', newState);
         this.gameState = newState;
-        
+
         // Hide end-game scoreboard when game restarts
         if (newState === 'playing' && this.endGameUI) {
             this.hideEndGameScreen();
         }
-        
+
         // Manage cursor visibility based on game state
         if (newState === 'playing') {
             // Hide system cursor when playing - use crosshair only
@@ -549,15 +553,15 @@ export class ShooterScene extends FreeForAllGameScene {
 
     onTimerUpdate(timeRemaining) {
         if (!this.timerText) return;
-        
+
         const formatted = this.formatTime(timeRemaining);
         this.timerText.setText(formatted);
-        
+
         // Warning color khi < 10s
         if (timeRemaining < 10) {
             this.timerText.setColor('#ff0000');
             this.timerIcon.setText('⚠️');
-            
+
             // Pulse effect
             const scale = 1 + Math.sin(Date.now() / 100) * 0.1;
             this.timerText.setScale(scale);
@@ -617,13 +621,13 @@ export class ShooterScene extends FreeForAllGameScene {
         // Main panel background
         const panelBg = this.add.rectangle(centerX, centerY, 600, 500, 0x1a1a2e, 0.98);
         panelBg.setDepth(1001).setScrollFactor(0);
-        
+
         const panelBorder = this.add.rectangle(centerX, centerY, 600, 500);
         panelBorder.setDepth(1001).setScrollFactor(0);
         panelBorder.setStrokeStyle(4, isWinner ? 0xFFD700 : 0x666666);
 
         // ====== TITLE ======
-        
+
         const titleText = isWinner ? '🏆 VICTORY! 🏆' : '💀 DEFEAT 💀';
         const titleColor = isWinner ? '#FFD700' : '#FF4444';
 
@@ -646,7 +650,7 @@ export class ShooterScene extends FreeForAllGameScene {
         });
 
         // ====== WINNER INFO ======
-        
+
         const winnerText = this.add.text(centerX, centerY - 140,
             `Winner: ${data.winnerName}`, {
             fontSize: '24px',
@@ -661,7 +665,7 @@ export class ShooterScene extends FreeForAllGameScene {
         }).setOrigin(0.5).setDepth(1002).setScrollFactor(0);
 
         // ====== SCOREBOARD HEADER ======
-        
+
         const scoreboardTitle = this.add.text(centerX, centerY - 60,
             '📊 FINAL STANDINGS', {
             fontSize: '20px',
@@ -705,16 +709,16 @@ export class ShooterScene extends FreeForAllGameScene {
         }).setOrigin(0.5, 0.5).setDepth(1003).setScrollFactor(0);
 
         // ====== PLAYER ENTRIES ======
-        
+
         const leaderboardEntries = [];
         let yOffset = centerY + 15;
-        
+
         data.finalScores.slice(0, 8).forEach((playerData, index) => {
             const rank = index + 1;
             const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `${rank}.`;
             const isMe = playerData.id === this.room.sessionId;
             const isWinnerRow = playerData.id === data.winner;
-            
+
             // Row background (highlight winner and me)
             let rowBg = null;
             if (isWinnerRow) {
@@ -762,7 +766,7 @@ export class ShooterScene extends FreeForAllGameScene {
             }).setOrigin(0.5, 0.5).setDepth(1003).setScrollFactor(0);
 
             // Ratio
-            const ratio = playerData.deaths > 0 
+            const ratio = playerData.deaths > 0
                 ? (playerData.kills / playerData.deaths).toFixed(2)
                 : (playerData.kills || 0);
             const ratioText = this.add.text(centerX + 230, yOffset, ratio, {
@@ -785,7 +789,7 @@ export class ShooterScene extends FreeForAllGameScene {
         });
 
         // ====== CLOSE BUTTON ======
-        
+
         const buttonBg = this.add.rectangle(centerX, centerY + 210, 200, 45, 0x00ff88);
         buttonBg.setDepth(1002).setScrollFactor(0);
         buttonBg.setInteractive({ useHandCursor: true });
@@ -812,7 +816,7 @@ export class ShooterScene extends FreeForAllGameScene {
         });
 
         // ====== Store UI references ======
-        
+
         this.endGameUI = {
             overlay,
             panelBg,
@@ -843,7 +847,7 @@ export class ShooterScene extends FreeForAllGameScene {
             if (Array.isArray(obj)) {
                 obj.forEach(entry => {
                     if (!entry) return;
-                    
+
                     // If entry is an object with multiple properties
                     if (typeof entry === 'object' && !entry.destroy) {
                         Object.values(entry).forEach(item => {
@@ -981,7 +985,7 @@ export class ShooterScene extends FreeForAllGameScene {
         const healthPercent = Math.max(0, Math.min(1, myPlayer.health / myPlayer.maxHealth));
         this.myHealthBar.setDisplaySize(196 * healthPercent, 12);
         this.myHealthText.setText(`${Math.round(myPlayer.health)}/${myPlayer.maxHealth}`);
-        
+
         // Health bar color
         if (healthPercent > 0.6) {
             this.myHealthBar.setFillStyle(0x00ff00); // Green
@@ -994,16 +998,35 @@ export class ShooterScene extends FreeForAllGameScene {
         // Update K/D
         this.kdText.setText(`⚔️ ${myPlayer.kills || 0}  💀 ${myPlayer.deaths || 0}`);
 
-        // Update respawn message visibility - CHỈ hiển thị khi đang playing VÀ dead
-        const shouldShowRespawnMsg = this.gameState === 'playing' && !myPlayer.isAlive;
-        this.respawnMessageBg.setVisible(shouldShowRespawnMsg);
-        this.respawnMessageBorder.setVisible(shouldShowRespawnMsg);
-        this.respawnMessage.setVisible(shouldShowRespawnMsg);
-        
-        // Pulse effect when dead
-        if (shouldShowRespawnMsg) {
+        // Update status message visibility and text
+        let shouldShowStatus = false;
+        let statusText = '';
+        let borderColor = 0x00ff88;
+
+        if (this.gameState === 'playing') {
+            if (myPlayer.isSpectator) {
+                // Spectating mid-game join
+                shouldShowStatus = true;
+                statusText = '🎬 Spectating - You will join next match';
+                borderColor = 0x00aaff;
+            } else if (!myPlayer.isAlive) {
+                // Dead, waiting for respawn
+                shouldShowStatus = true;
+                statusText = '💀 Waiting for respawn...';
+                borderColor = 0xff0000;
+            }
+        }
+
+        this.statusMessageBg.setVisible(shouldShowStatus);
+        this.statusMessageBorder.setVisible(shouldShowStatus);
+        this.statusMessageBorder.setStrokeStyle(2, borderColor, 0.7);
+        this.statusMessage.setVisible(shouldShowStatus);
+        this.statusMessage.setText(statusText);
+
+        // Pulse effect when showing status
+        if (shouldShowStatus) {
             const alpha = 0.8 + Math.sin(Date.now() / 200) * 0.2;
-            this.respawnMessage.setAlpha(alpha);
+            this.statusMessage.setAlpha(alpha);
         }
     }
 
@@ -1025,7 +1048,7 @@ export class ShooterScene extends FreeForAllGameScene {
 
         // Always show top 3 players (even if score is 0)
         const topPlayers = players.slice(0, 3);
-        
+
         topPlayers.forEach((player, index) => {
             const entry = this.leaderboardEntries[index];
             if (!entry) return;
@@ -1033,7 +1056,7 @@ export class ShooterScene extends FreeForAllGameScene {
             const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`;
             const isMe = player.id === this.room.sessionId;
             const displayName = player.name.substring(0, 10); // Truncate long names
-            
+
             entry.setText(`${medal} ${displayName}: ${player.score}`);
             entry.setColor(isMe ? '#FFD700' : '#ffffff'); // Gold for me
             entry.setFontStyle(isMe ? 'bold' : 'normal');
@@ -1070,7 +1093,7 @@ export class ShooterScene extends FreeForAllGameScene {
         this.crosshair.lineBetween(cx + 4, cy, cx + 12, cy);
         this.crosshair.lineBetween(cx, cy - 12, cx, cy - 4);
         this.crosshair.lineBetween(cx, cy + 4, cx, cy + 12);
-        
+
         this.crosshair.fillStyle(0xff0000, 0.8);
         this.crosshair.fillCircle(cx, cy, 2);
     }
@@ -1084,14 +1107,14 @@ export class ShooterScene extends FreeForAllGameScene {
 
         // Create red overlay flash (since circles don't support tint)
         const flashOverlay = this.add.circle(
-            playerObj.sprite.x, 
-            playerObj.sprite.y, 
+            playerObj.sprite.x,
+            playerObj.sprite.y,
             22, // Slightly larger than player
-            0xff0000, 
+            0xff0000,
             0.6
         );
         flashOverlay.setDepth(12); // Above player sprite (depth 10)
-        
+
         // Fade out and remove
         this.tweens.add({
             targets: flashOverlay,
@@ -1162,7 +1185,7 @@ export class ShooterScene extends FreeForAllGameScene {
         // Get actual respawn position from player state (not old sprite position)
         const player = this.room.state.players.get(sessionId);
         if (!player) return;
-        
+
         const spawnX = player.x;
         const spawnY = player.y;
 

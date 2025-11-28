@@ -427,5 +427,3 @@ Edge cases:
 4. **Start MVP**: Simple shooter trước, expand sau
 
 5. **Testing is critical**: Real-time games cần test với actual network conditions
-
-Bạn muốn tôi đi sâu vào phần nào? Hoặc cần tôi phân tích thêm về trade-offs của các quyết định kỹ thuật? 

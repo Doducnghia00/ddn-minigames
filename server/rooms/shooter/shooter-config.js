@@ -8,7 +8,7 @@
 const SHOOTER_CONFIG = {
     // ===== MATCH SETTINGS =====
     match: {
-        scoreLimit: 15,              // Kills needed to win (default: 8)
+        scoreLimit: 10,              // Kills needed to win (default: 8)
         matchDuration: 300,         // Match duration in seconds (default: 120 = 2 minutes)
         patchRate: 16.67,           // State sync rate in ms (16.67 = 60 FPS)
         minPlayers: 2,              // Minimum players to start
@@ -32,8 +32,8 @@ const SHOOTER_CONFIG = {
 
     // ===== WEAPON SETTINGS =====
     weapon: {
-        fireRate: 300,              // Milliseconds between shots (300ms = ~3.3 shots/sec)
-        bulletSpeed: 400,           // Bullet travel speed (pixels/second)
+        fireRate: 500,              // Milliseconds between shots (300ms = ~3.3 shots/sec)
+        bulletSpeed: 300,           // Bullet travel speed (pixels/second)
         bulletDamage: 20,           // Damage per bullet hit
         bulletLifetime: 3,          // Max bullet lifetime in seconds
     },
