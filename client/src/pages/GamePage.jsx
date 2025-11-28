@@ -232,7 +232,7 @@ const GamePage = () => {
                 return totalPlayers > 0 && readyCount === totalPlayers;
         }
     })();
-    const canStartMatch = currentRoom?.sessionId === roomOwner && gameState !== 'playing' && everyoneReady;
+    const canStartMatch = currentRoom?.sessionId === roomOwner && gameState !== 'playing' && everyoneReady && hasEnoughPlayers;
     const canKickPlayers = allowKicks && currentRoom?.sessionId === roomOwner;
 
 
@@ -357,6 +357,19 @@ const GamePage = () => {
                         <div className="glass-effect rounded-xl p-4 shadow-lg">
                             <div className="text-xs text-gray-400 uppercase font-bold tracking-wider mb-3">Queue</div>
                             
+                            {/* Player Count */}
+                            <div className="mb-3">
+                                <div className="flex justify-between items-center mb-2">
+                                    <span className="text-sm text-gray-300">Players</span>
+                                    <span className={`text-sm font-bold ${hasEnoughPlayers ? 'text-green-400' : 'text-yellow-400'}`}>
+                                        {totalPlayers}/{minPlayers}
+                                    </span>
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                    {hasEnoughPlayers ? '✅ Enough players' : `⏳ Need ${minPlayers - totalPlayers} more`}
+                                </div>
+                            </div>
+
                             {/* Ready Progress */}
                             <div className="mb-4">
                                 <div className="flex justify-between items-center mb-2">
@@ -370,7 +383,7 @@ const GamePage = () => {
                                     ></div>
                                 </div>
                                 <div className="text-xs text-gray-500 mt-1">
-                                    {readyStrategy === 'allPlayers' ? 'Everyone must be ready' : `Min ${minPlayers} players`}
+                                    {readyStrategy === 'allPlayers' ? 'Everyone must be ready' : `Min ${minPlayers} ready to start`}
                                 </div>
                             </div>
 
