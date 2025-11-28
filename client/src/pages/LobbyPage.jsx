@@ -11,7 +11,7 @@ const LobbyPage = () => {
     const { joinRoom } = useGame();
 
     const gameDefinitions = useMemo(() => getGameDefinitions(), []);
-    const SYSTEM_FALLBACK_GAME_ID = DEFAULT_GAME_ID || Object.keys(GAME_REGISTRY)[0];
+    const SYSTEM_FALLBACK_GAME_ID = DEFAULT_GAME_ID;
     const defaultGameId = gameDefinitions[0]?.id || SYSTEM_FALLBACK_GAME_ID;
     const [selectedGameId, setSelectedGameId] = useState(defaultGameId);
     const selectedGame = useMemo(() => getGameConfig(selectedGameId || defaultGameId), [selectedGameId, defaultGameId]);

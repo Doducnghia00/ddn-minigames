@@ -1,6 +1,12 @@
 import Phaser from 'phaser';
 import { TurnBasedGameScene } from '../base/TurnBasedGameScene';
-import { CARO_CONFIG } from './config';
+
+const BOARD_CONSTANTS = {
+    cellSize: 40,
+    boardSize: 15,
+    width: 800,
+    height: 600
+};
 
 export class CaroScene extends TurnBasedGameScene {
     constructor() {
@@ -11,10 +17,10 @@ export class CaroScene extends TurnBasedGameScene {
         super.init(data);
 
         // Caro-specific initialization
-        this.cellSize = CARO_CONFIG.rules.cellSize;
-        this.boardSize = CARO_CONFIG.rules.boardSize;
-        this.offsetX = (CARO_CONFIG.phaserConfig.width - this.cellSize * this.boardSize) / 2;
-        this.offsetY = (CARO_CONFIG.phaserConfig.height - this.cellSize * this.boardSize) / 2;
+        this.cellSize = BOARD_CONSTANTS.cellSize;
+        this.boardSize = BOARD_CONSTANTS.boardSize;
+        this.offsetX = (BOARD_CONSTANTS.width - this.cellSize * this.boardSize) / 2;
+        this.offsetY = (BOARD_CONSTANTS.height - this.cellSize * this.boardSize) / 2;
         this.boardMarks = new Map();
     }
 
@@ -61,7 +67,7 @@ export class CaroScene extends TurnBasedGameScene {
     }
 
     setupRoomEvents() {
-        // console.log("CaroScene: Room connected", this.room.sessionId);
+
 
         // Listen to state changes
         this.room.onStateChange((state) => {
@@ -92,7 +98,7 @@ export class CaroScene extends TurnBasedGameScene {
 
         // Listen to game start
         this.room.onMessage("start_game", (message) => {
-            // console.log("Game started!", message);
+
             this.gameState = 'playing';
             this.hideGameOverModal();
             this.updateGameUI();
@@ -100,7 +106,7 @@ export class CaroScene extends TurnBasedGameScene {
 
         // Listen to game over
         this.room.onMessage("game_over", (message) => {
-            // console.log("Game over!", message);
+
             this.gameState = 'finished';
             this.showGameOverModal(message.winner);
             this.updateGameUI();

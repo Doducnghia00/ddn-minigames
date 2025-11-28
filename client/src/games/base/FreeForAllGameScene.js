@@ -64,12 +64,9 @@ export class FreeForAllGameScene extends BaseGameScene {
 
         // Guard: prevent duplicate setup
         if (this.eventsSetup) {
-            // console.log('[FreeForAllGameScene] Events already setup, skipping');
             return;
         }
         this.eventsSetup = true;
-
-        // console.log('[FreeForAllGameScene] Setting up room events');
 
         // Listen to match timer updates
         this.room.state.listen('matchTimer', (value) => {
@@ -92,9 +89,10 @@ export class FreeForAllGameScene extends BaseGameScene {
         });
 
         // Listen to game state changes
-        this.room.state.listen('gameState', (value) => {
+        this.room.state.listen('gameState', (value, previousValue) => {
+            const oldState = this.gameState;
             this.gameState = value;
-            this.onGameStateChanged(value);
+            this.onGameStateChanged(value, oldState);
         });
 
         // Listen to winner
@@ -107,7 +105,6 @@ export class FreeForAllGameScene extends BaseGameScene {
 
         // Listen to player additions (NEW players joining)
         this.room.state.players.onAdd = (player, sessionId) => {
-            // console.log('[FreeForAllGameScene] New player added:', sessionId, player.name);
             this.onPlayerAdded(player, sessionId);
             this.setupPlayerListeners(player, sessionId);
         };
@@ -122,7 +119,6 @@ export class FreeForAllGameScene extends BaseGameScene {
 
         // NOW initialize existing players (after callbacks are set)
         this.room.state.players.forEach((player, sessionId) => {
-            // console.log('[FreeForAllGameScene] Initializing existing player:', sessionId, player.name);
             this.onPlayerAdded(player, sessionId);
             this.setupPlayerListeners(player, sessionId);
         });
@@ -185,8 +181,10 @@ export class FreeForAllGameScene extends BaseGameScene {
 
     /**
      * Called when game state changes (waiting -> playing -> finished)
+     * @param {string} newState - New game state
+     * @param {string} oldState - Previous game state
      */
-    onGameStateChanged(newState) {
+    onGameStateChanged(newState, oldState) {
         // Subclass implements
     }
 

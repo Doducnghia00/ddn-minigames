@@ -79,8 +79,6 @@ export class TestFFAScene extends FreeForAllGameScene {
     // ========== FFA Scene Hooks ==========
 
     onGameStateChanged(newState) {
-        console.log('[TestFFA] Game state:', newState);
-
         if (newState === 'playing') {
             this.stateText.setText('Match in progress!');
             this.addScoreBtn.setVisible(true);
@@ -107,17 +105,14 @@ export class TestFFAScene extends FreeForAllGameScene {
     }
 
     onScoreChanged(sessionId, newScore) {
-        console.log('[TestFFA] Score changed:', sessionId, newScore);
         this.updateLeaderboard();
     }
 
     onPlayerAdded(player, sessionId) {
-        console.log('[TestFFA] Player added:', player.name);
         this.updateLeaderboard();
     }
 
     onPlayerRemoved(sessionId) {
-        console.log('[TestFFA] Player removed:', sessionId);
         this.updateLeaderboard();
     }
 

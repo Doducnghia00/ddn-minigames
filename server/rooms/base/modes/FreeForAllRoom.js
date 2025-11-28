@@ -119,10 +119,6 @@ class FreeForAllRoom extends BaseRoom {
             const actualElapsed = (now - this.gameStartTime) / 1000;
             const timerDiff = Math.abs(this.elapsedTime - actualElapsed);
             
-            if (Math.floor(newTimer) % 5 === 0) {
-                console.log(`[FreeForAllRoom] Timer: ${Math.floor(newTimer)}s | Ticks: ${this.tickCount} | Internal elapsed: ${this.elapsedTime.toFixed(2)}s | Actual elapsed: ${actualElapsed.toFixed(2)}s | Diff: ${timerDiff.toFixed(3)}s`);
-            }
-            
             // WARNING: If timer drift is > 1 second, something is wrong
             if (timerDiff > 1.0) {
                 console.warn(`[FreeForAllRoom] ⚠️ TIMER DRIFT DETECTED! Internal: ${this.elapsedTime.toFixed(2)}s vs Actual: ${actualElapsed.toFixed(2)}s (diff: ${timerDiff.toFixed(2)}s)`);

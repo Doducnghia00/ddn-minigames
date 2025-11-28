@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import Phaser from 'phaser';
 import { useAuth } from '../context/AuthContext';
 import { useGame } from '../context/GameContext';
-import { getGameConfig, GAME_REGISTRY, DEFAULT_GAME_ID } from '../config/gameRegistry';
+import { getGameConfig, DEFAULT_GAME_ID } from '../config/gameRegistry';
 import { getMergedGameProfile } from '../config/gameProfiles';
 import PlayerCard from '../components/games/PlayerCard';
 import Modal from '../components/ui/Modal';
@@ -66,7 +66,7 @@ const GamePage = () => {
             console.log("Phaser game already initialized, skipping...");
         } else {
             // Get game configuration dynamically
-            const SYSTEM_FALLBACK_GAME_ID = DEFAULT_GAME_ID || Object.keys(GAME_REGISTRY)[0];
+            const SYSTEM_FALLBACK_GAME_ID = DEFAULT_GAME_ID;
 
             // // Debug logging
             // console.log('[GamePage] Debug gameId detection:', {

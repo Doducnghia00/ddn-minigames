@@ -252,8 +252,6 @@ class ShooterRoom extends FreeForAllRoom {
         player.rotation = 0;
         player.health = player.maxHealth;
         player.isAlive = true;
-
-        console.log(`[ShooterRoom] ${player.name} spawned at (${Math.floor(player.x)}, ${Math.floor(player.y)})`);
     }
 
     /**
@@ -342,8 +340,6 @@ class ShooterRoom extends FreeForAllRoom {
         bullet.createdAt = now / 1000; // Convert to seconds
 
         this.state.bullets.push(bullet);
-
-        console.log(`[ShooterRoom] ${player.name} fired bullet ${bullet.id}`);
     }
 
     /**
@@ -499,8 +495,6 @@ class ShooterRoom extends FreeForAllRoom {
         // Apply damage
         player.health -= bullet.damage;
 
-        console.log(`[ShooterRoom] ${player.name} hit! Health: ${player.health}/${player.maxHealth}`);
-
         // Check if player died
         if (player.health <= 0) {
             this.handlePlayerDeath(playerId, bullet.ownerId);
@@ -561,8 +555,6 @@ class ShooterRoom extends FreeForAllRoom {
         if (!player) return;
 
         this.spawnPlayer(player);
-
-        console.log(`[ShooterRoom] ${player.name} respawned`);
 
         // BROADCAST FILTERING: Throttle respawn notifications
         // State sync already handles respawn position/health, broadcast is optional

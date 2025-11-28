@@ -77,7 +77,7 @@ export class ShooterScene extends FreeForAllGameScene {
 
         // Listen to respawn events
         this.room.onMessage('player_respawned', (data) => {
-            // console.log('[ShooterScene] Player respawned:', data.playerName);
+
         });
 
         // Listen to bullet creation (server-confirmed) for muzzle flash
@@ -642,11 +642,11 @@ export class ShooterScene extends FreeForAllGameScene {
     }
 
     onGameStateChanged(newState, oldState) {
-        // console.log('[ShooterScene] Game state:', newState);
         this.gameState = newState;
 
-        // When game restarts, cleanup all old sprites and effects
-        if (newState === 'playing' && (oldState === 'finished' || oldState === 'waiting')) {
+        // When game starts/restarts, cleanup all old sprites and effects
+        // Condition: newState is 'playing' AND oldState is NOT 'playing' (or undefined on first load)
+        if (newState === 'playing' && oldState !== 'playing') {
             this.cleanupAllSprites();
         }
 
@@ -1088,16 +1088,6 @@ export class ShooterScene extends FreeForAllGameScene {
 
             // Note: We don't rotate the sprite itself anymore since we have direction indicator
 
-            // Debug log for first update
-            // Debug logging for this specific player update
-            // console.log('[ShooterScene] Player sprite update:', {
-            //     sessionId,
-            //     position: { x: player.x, y: player.y },
-            //     rotation: player.rotation,
-            //     isAlive: player.isAlive,
-            //     visible: sprite.visible,
-            //     depth: sprite.depth
-            // });
             if (!sprite.getData('logged')) {
                 sprite.setData('logged', true);
             }

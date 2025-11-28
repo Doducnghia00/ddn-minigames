@@ -7,9 +7,10 @@ const { Duel1v1Room } = require('./rooms/duel1v1/Duel1v1Room');
 const { CaroRoom } = require('./rooms/caro/CaroRoom');
 const { TestFFARoom } = require('./rooms/test-ffa/TestFFARoom');
 const { ShooterRoom } = require('./rooms/shooter/ShooterRoom');
+const { GAME_REGISTRY, getEnabledGames } = require('./config/game-registry');
 
 const test = require('dotenv').config();
-console.log("test", test);
+
 
 const AUTH_CONFIG = require('./config/auth');
 const port = process.env.PORT || 2567;
@@ -35,6 +36,33 @@ app.get('/api/auth/features', (req, res) => {
         guestLogin: AUTH_CONFIG.enableGuestLogin,
         googleLogin: AUTH_CONFIG.enableGoogleLogin
     });
+});
+
+// ===== GAME REGISTRY API =====
+// GET /api/games - List all enabled games from server registry
+app.get('/api/games', (req, res) => {
+    try {
+        const games = getEnabledGames().map(game => ({
+            id: game.id,
+            name: game.metadata.name,
+            description: game.metadata.description,
+            emoji: game.metadata.emoji,
+            accent: game.metadata.accent,
+            status: game.metadata.status,
+            minPlayers: game.config.match?.minPlayers || 2,
+            maxPlayers: game.config.match?.maxPlayers || 8,
+            // UI config (for Phaser canvas sizing)
+            uiConfig: {
+                arenaWidth: game.config.arena?.width || 800,
+                arenaHeight: game.config.arena?.height || 600
+            }
+        }));
+        
+        res.json({ games });
+    } catch (error) {
+        console.error('[API] Error fetching games:', error);
+        res.status(500).json({ error: 'Failed to fetch games' });
+    }
 });
 
 // Auth Middleware (only used if Google login is enabled)
@@ -172,13 +200,20 @@ const gameServer = new Server({
 
 // Define Rooms
 gameServer.define('lobby', LobbyRoom);
-gameServer.define('duel_1v1', Duel1v1Room);
-gameServer.define('caro', CaroRoom)
-    .enableRealtimeListing();
-gameServer.define('test-ffa', TestFFARoom)
-    .enableRealtimeListing();
-gameServer.define('shooter', ShooterRoom)
-    .enableRealtimeListing();
+
+// ===== DYNAMIC ROOM DEFINITIONS FROM REGISTRY =====
+// Automatically define all enabled games from registry
+Object.values(GAME_REGISTRY).forEach(game => {
+    if (!game.enabled) {
+        console.log(`⏭️  Skipping disabled game: ${game.id}`);
+        return;
+    }
+    
+    console.log(`✅ Registering game: ${game.id} (${game.metadata.name})`);
+    
+    gameServer.define(game.roomName, game.roomClass)
+        .enableRealtimeListing();
+});
 
 // Add Colyseus monitor
 app.use('/colyseus', monitor());

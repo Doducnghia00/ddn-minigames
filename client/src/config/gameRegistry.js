@@ -1,89 +1,132 @@
 /**
- * Game Registry
+ * Game Registry - Dynamic Loading from Server
  * 
- * Central registry for all available games.
- * Maps game IDs to their scenes and configurations.
- * 
- * To add a new game:
- * 1. Import the scene and config
- * 2. Add an entry to GAME_REGISTRY
- * 3. That's it! No other files need changes.
+ * PHASE 2 REFACTOR:
+ * - Game list now fetched from server API (single source of truth)
+ * - Scene mappings and Phaser configs remain client-side (build-time)
+ * - Registry initialized on app load
  */
 
+import Phaser from 'phaser';
 import { CaroScene } from '../games/caro/CaroScene';
-import { CARO_CONFIG } from '../games/caro/config';
 import { TestFFAScene } from '../games/test-ffa/TestFFAScene';
-import { TEST_FFA_CONFIG } from '../games/test-ffa/config';
 import { ShooterScene } from '../games/shooter/ShooterScene';
-import { SHOOTER_CONFIG } from '../games/shooter/config';
+import { fetchAvailableGames } from '../services/gameService';
 
-/**
- * Registry of all available games
- * Key: game ID (used in room metadata)
- * Value: game configuration object
- */
-export const GAME_REGISTRY = {
-    caro: {
-        id: CARO_CONFIG.id,
-        name: CARO_CONFIG.name,
-        description: CARO_CONFIG.description,
-        scene: CaroScene,
-        scenes: [CaroScene],
-        phaserConfig: CARO_CONFIG.phaserConfig,
-        minPlayers: CARO_CONFIG.minPlayers,
-        maxPlayers: CARO_CONFIG.maxPlayers,
-        lobby: {
-            status: 'Active',
-            emoji: '⭕❌',
-            accent: 'green'
-        },
-        createRoomDefaults: (user) => ({
-            roomName: `${user?.name || user?.email || 'Player'}'s Room`,
-            password: ''
-        })
-    },
-    'test-ffa': {
-        id: TEST_FFA_CONFIG.id,
-        name: TEST_FFA_CONFIG.name,
-        description: TEST_FFA_CONFIG.description,
-        scene: TestFFAScene,
-        scenes: [TestFFAScene],
-        phaserConfig: TEST_FFA_CONFIG.phaserConfig,
-        minPlayers: TEST_FFA_CONFIG.minPlayers,
-        maxPlayers: TEST_FFA_CONFIG.maxPlayers,
-        lobby: {
-            status: 'Test',
-            emoji: '🧪',
-            accent: 'blue'
-        },
-        createRoomDefaults: (user) => ({
-            roomName: `${user?.name || 'Player'}'s Test Room`,
-            password: ''
-        })
-    },
-    shooter: {
-        id: SHOOTER_CONFIG.id,
-        name: SHOOTER_CONFIG.name,
-        description: SHOOTER_CONFIG.description,
-        scene: ShooterScene,
-        scenes: [ShooterScene],
-        phaserConfig: SHOOTER_CONFIG.phaserConfig,
-        minPlayers: SHOOTER_CONFIG.minPlayers,
-        maxPlayers: SHOOTER_CONFIG.maxPlayers,
-        lobby: {
-            status: 'Active',
-            emoji: '🔫',
-            accent: 'red'
-        },
-        createRoomDefaults: (user) => ({
-            roomName: `${user?.name || 'Player'}'s Arena`,
-            password: ''
-        })
-    },
-    // Future games can be added here...
+// ===== SCENE MAPPING (Static - must know at build time) =====
+const SCENE_MAP = {
+    'caro': CaroScene,
+    'test-ffa': TestFFAScene,
+    'shooter': ShooterScene
 };
 
-export const DEFAULT_GAME_ID = Object.keys(GAME_REGISTRY)[0];
+// ===== PHASER CONFIG TEMPLATES (Client-specific) =====
+// These are rendering configs, not gameplay configs
+const PHASER_CONFIG_TEMPLATES = {
+    'caro': (width, height) => ({
+        type: Phaser.AUTO,
+        width: width || 800,
+        height: height || 600,
+        backgroundColor: '#1a1a2e'
+    }),
+    
+    'test-ffa': (width, height) => ({
+        type: Phaser.AUTO,
+        width: width || 800,
+        height: height || 600,
+        backgroundColor: '#1a1a2e',
+        physics: {
+            default: 'arcade',
+            arcade: { gravity: { y: 0 }, debug: false }
+        }
+    }),
+    
+    'shooter': (width, height) => ({
+        type: Phaser.AUTO,
+        width: width || 800,
+        height: height || 600,
+        backgroundColor: '#1a1a2e',
+        physics: {
+            default: 'arcade',
+            arcade: { gravity: { y: 0 }, debug: false }
+        }
+    })
+};
+
+// ===== DYNAMIC REGISTRY =====
+let GAME_REGISTRY = null;
+let loadingPromise = null;
+
+/**
+ * Initialize game registry from server
+ * @returns {Promise<Object>} Loaded game registry
+ */
+export async function initGameRegistry() {
+    // Prevent duplicate fetches
+    if (loadingPromise) {
+        return loadingPromise;
+    }
+    
+    loadingPromise = (async () => {
+        const games = await fetchAvailableGames();
+        
+        if (games.length === 0) {
+            console.error('[GameRegistry] No games available from server');
+            throw new Error('No games available');
+        }
+        
+        GAME_REGISTRY = {};
+        
+        for (const game of games) {
+            const scene = SCENE_MAP[game.id];
+            if (!scene) {
+                console.warn(`[GameRegistry] Scene not found for game: ${game.id}, skipping`);
+                continue;
+            }
+            
+            const phaserConfigTemplate = PHASER_CONFIG_TEMPLATES[game.id];
+            if (!phaserConfigTemplate) {
+                console.warn(`[GameRegistry] Phaser config not found for game: ${game.id}, using defaults`);
+            }
+            
+            GAME_REGISTRY[game.id] = {
+                // From server
+                id: game.id,
+                name: game.name,
+                description: game.description,
+                minPlayers: game.minPlayers,
+                maxPlayers: game.maxPlayers,
+                
+                // Client-side scene and config
+                scene: scene,
+                scenes: [scene],
+                phaserConfig: phaserConfigTemplate 
+                    ? phaserConfigTemplate(game.uiConfig.arenaWidth, game.uiConfig.arenaHeight)
+                    : { type: Phaser.AUTO, width: 800, height: 600 },
+                
+                // Lobby UI (from server)
+                lobby: {
+                    emoji: game.emoji,
+                    accent: game.accent,
+                    status: game.status
+                },
+                
+                // Room creation defaults
+                createRoomDefaults: (user) => ({
+                    roomName: `${user?.name || user?.email || 'Player'}'s ${game.name}`,
+                    password: ''
+                })
+            };
+        }
+        
+        console.log(`[GameRegistry] Initialized with ${Object.keys(GAME_REGISTRY).length} games`);
+        return GAME_REGISTRY;
+    })();
+    
+    return loadingPromise;
+}
+
+export const DEFAULT_GAME_ID = 'shooter'; // Fallback if registry not ready
 
 /**
  * Get game configuration by ID
@@ -91,14 +134,20 @@ export const DEFAULT_GAME_ID = Object.keys(GAME_REGISTRY)[0];
  * @returns {object} Game configuration object
  */
 export function getGameConfig(gameId) {
-    const fallbackId = DEFAULT_GAME_ID;
+    if (!GAME_REGISTRY) {
+        console.error('[GameRegistry] Registry not initialized');
+        return null;
+    }
+    
     const config = GAME_REGISTRY[gameId];
-
+    
     if (!config) {
-        console.warn(`Game '${gameId}' not found in registry, falling back to '${fallbackId}'`);
+        console.warn(`Game '${gameId}' not found in registry, trying fallback`);
+        // Return first available game as fallback
+        const fallbackId = Object.keys(GAME_REGISTRY)[0];
         return GAME_REGISTRY[fallbackId];
     }
-
+    
     return config;
 }
 
@@ -107,6 +156,9 @@ export function getGameConfig(gameId) {
  * @returns {string[]} Array of game IDs
  */
 export function getAvailableGames() {
+    if (!GAME_REGISTRY) {
+        return [];
+    }
     return Object.keys(GAME_REGISTRY);
 }
 
@@ -114,5 +166,8 @@ export function getAvailableGames() {
  * Returns full game definitions for UI listings
  */
 export function getGameDefinitions() {
+    if (!GAME_REGISTRY) {
+        return [];
+    }
     return Object.values(GAME_REGISTRY);
 }
