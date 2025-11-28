@@ -52,6 +52,9 @@ class ShooterRoom extends FreeForAllRoom {
         console.error(error.stack);
     }
 
+    /**
+     * Cleanup on room disposal
+     */
     onDispose() {
         console.log('[ShooterRoom] Room disposing:', this.roomId);
         console.log('[ShooterRoom] Players at dispose:', this.state?.players?.size);
@@ -116,6 +119,51 @@ class ShooterRoom extends FreeForAllRoom {
         });
 
         return player;
+    }
+
+    /**
+     * Called after a player joins the room
+     */
+    afterPlayerJoin(client, player, options) {
+        super.afterPlayerJoin(client, player, options);
+
+        console.log('[ShooterRoom] Player joined:', player.name, '- Total players:', this.state.players.size);
+
+        // Reset all players' readiness when someone new joins
+        // (consistent with Caro behavior)
+        this.resetReadiness();
+
+        // If not enough players and not playing, ensure waiting state
+        if (this.state.players.size < this.getMinPlayers() && this.state.gameState !== 'playing') {
+            this.state.gameState = 'waiting';
+        }
+    }
+
+    /**
+     * Called after a player leaves the room
+     */
+    afterPlayerLeave(client) {
+        super.afterPlayerLeave(client);
+
+        console.log('[ShooterRoom] Player left - Remaining players:', this.state.players.size);
+
+        // Reset readiness
+        this.resetReadiness();
+
+        // If playing and not enough players left, end the match
+        if (this.state.gameState === 'playing') {
+            if (this.state.players.size < this.getMinPlayers()) {
+                console.log('[ShooterRoom] Not enough players, ending match');
+                this.endMatch();
+            }
+            // Could also: declare winner if only 1 player remains
+            // For now, just continue the match
+        }
+
+        // If not playing and below min players, reset to waiting
+        if (this.state.gameState !== 'playing' && this.state.players.size < this.getMinPlayers()) {
+            this.state.gameState = 'waiting';
+        }
     }
 
     onGameStart() {
@@ -429,13 +477,6 @@ class ShooterRoom extends FreeForAllRoom {
         this.state.bullets.clear();
     }
 
-    /**
-     * Cleanup on room disposal
-     */
-    onDispose() {
-        super.onDispose();
-        console.log('[ShooterRoom] Room disposed:', this.roomId);
-    }
 }
 
 module.exports = { ShooterRoom };

@@ -212,14 +212,6 @@ class FreeForAllRoom extends BaseRoom {
     }
 
     /**
-     * Override rematch to reset FFA-specific state
-     */
-    onRematchApproved() {
-        // Reset is handled in onGameStart
-        this.startGame();
-    }
-
-    /**
      * Cleanup when room is disposed
      */
     onDispose() {

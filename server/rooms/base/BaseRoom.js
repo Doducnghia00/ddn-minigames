@@ -40,10 +40,6 @@ class BaseRoom extends Room {
         this.onMessage("change_password", (client, payload = {}) => {
             this.handleChangePassword(client, payload.newPassword);
         });
-
-        this.onMessage("rematch", (client) => {
-            this.handleRematch(client);
-        });
     }
 
     createInitialState() {
@@ -104,7 +100,6 @@ class BaseRoom extends Room {
 
     onLeave(client) {
         this.state.players.delete(client.sessionId);
-        this.state.rematchVotes.delete(client.sessionId);
 
         if (this.state.roomOwner === client.sessionId) {
             this.assignNextOwner();
@@ -182,23 +177,6 @@ class BaseRoom extends Room {
         // Game-specific hook
     }
 
-    handleRematch(client) {
-        if (this.state.gameState !== "finished") return;
-
-        this.state.rematchVotes.set(client.sessionId, true);
-
-        if (this.state.rematchVotes.size === this.state.players.size &&
-            this.state.players.size >= this.getMinPlayers()) {
-            this.state.gameState = "waiting";
-            this.state.winner = "";
-            this.onRematchApproved();
-        }
-    }
-
-    onRematchApproved() {
-        this.startGame();
-    }
-
     handleKickPlayer(client, targetId) {
         if (this.state.roomOwner !== client.sessionId) {
             return;
@@ -239,12 +217,6 @@ class BaseRoom extends Room {
     resetReadiness() {
         for (const [, player] of this.state.players) {
             player.isReady = false;
-        }
-    }
-
-    clearRematchVotes() {
-        for (const key of Array.from(this.state.rematchVotes.keys())) {
-            this.state.rematchVotes.delete(key);
         }
     }
 
