@@ -13,5 +13,8 @@ class CaroState extends TurnBasedRoomState {
 }
 
 type(["number"])(CaroState.prototype, "board");
+// Note: players field is inherited from BaseRoomState and uses base Player type by default
+// CaroPlayer type is enforced by CaroRoom.createPlayer() method
+
 module.exports = { CaroState };
 

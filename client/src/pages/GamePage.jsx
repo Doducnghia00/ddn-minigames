@@ -3,10 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import Phaser from 'phaser';
 import { useAuth } from '../context/AuthContext';
 import { useGame } from '../context/GameContext';
-import { getGameConfig } from '../config/gameRegistry';
+import { getGameConfig, GAME_REGISTRY, DEFAULT_GAME_ID } from '../config/gameRegistry';
 import { getMergedGameProfile } from '../config/gameProfiles';
 import PlayerCard from '../components/games/PlayerCard';
 import Modal from '../components/ui/Modal';
+import NetworkMonitor from '../components/ui/NetworkMonitor';
 
 const GamePage = () => {
     const navigate = useNavigate();
@@ -25,6 +26,7 @@ const GamePage = () => {
     const [isReady, setIsReady] = useState(false);
     const [readyCount, setReadyCount] = useState(0);
     const [kickModal, setKickModal] = useState({ isOpen: false, message: '' });
+    const [showNetworkMonitor, setShowNetworkMonitor] = useState(false);
 
     useEffect(() => {
         hasNavigatedRef.current = false;
@@ -65,10 +67,19 @@ const GamePage = () => {
         } else {
             // Get game configuration dynamically
             const SYSTEM_FALLBACK_GAME_ID = DEFAULT_GAME_ID || Object.keys(GAME_REGISTRY)[0];
+
+            // // Debug logging
+            // console.log('[GamePage] Debug gameId detection:', {
+            //     roomDataGameId: roomData?.gameId,
+            //     metadataGameId: currentRoom?.metadata?.gameId,
+            //     fullMetadata: currentRoom?.metadata,
+            //     fallback: SYSTEM_FALLBACK_GAME_ID
+            // });
+
             const gameId = roomData?.gameId || currentRoom?.metadata?.gameId || SYSTEM_FALLBACK_GAME_ID;
             const gameConfig = getGameConfig(gameId);
 
-            console.log(`Initializing game: ${gameId}`, gameConfig);
+            console.log(`[GamePage] Initializing game: ${gameId}`, gameConfig);
 
             const config = {
                 type: Phaser.AUTO,
@@ -122,18 +133,23 @@ const GamePage = () => {
             }
         });
 
-        currentRoom.onStateChange((state) => {
+        // Helper function to sync state to React
+        const syncStateToReact = (state) => {
+            // console.log('[GamePage] Syncing state - players in state:', state.players.size);
+
             const playerMap = new Map();
             state.players.forEach((player, id) => {
+                // Only sync BASE player fields - no game-specific data
                 playerMap.set(id, {
                     id: player.id,
                     name: player.name,
                     avatar: player.avatar,
-                    symbol: player.symbol,
                     isOwner: player.isOwner,
                     isReady: player.isReady
                 });
             });
+
+            // console.log('[GamePage] Setting players Map size:', playerMap.size);
             setPlayers(playerMap);
             setRoomOwner(state.roomOwner);
             setCurrentTurn(isTurnBased ? (state.currentTurn || null) : null);
@@ -143,12 +159,24 @@ const GamePage = () => {
             const me = playerMap.get(currentRoom.sessionId);
             setIsReady(!!me?.isReady);
             setGameState(state.gameState);
+        };
+
+        // CRITICAL FIX: Sync initial state immediately to avoid race condition
+        // onStateChange only fires on CHANGES, not on initial state
+        if (currentRoom.state) {
+            // console.log('[GamePage] Syncing initial state immediately');
+            syncStateToReact(currentRoom.state);
+        }
+
+        // Then listen for future state changes
+        currentRoom.onStateChange((state) => {
+            syncStateToReact(state);
         });
 
         return () => {
             clearTimeout(timeoutId);
             if (phaserGameRef.current) {
-                console.log("Destroying Phaser game instance");
+                // console.log("Destroying Phaser game instance");
 
                 // Clean up DOM elements before destroying Phaser
                 const scene = phaserGameRef.current.scene.scenes[0];
@@ -206,6 +234,7 @@ const GamePage = () => {
     })();
     const canStartMatch = currentRoom?.sessionId === roomOwner && gameState !== 'playing' && everyoneReady;
     const canKickPlayers = allowKicks && currentRoom?.sessionId === roomOwner;
+
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 py-8">
@@ -284,12 +313,21 @@ const GamePage = () => {
                         </div>
                     </div>
 
-                    <button
-                        onClick={handleLeave}
-                        className="px-6 py-3 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 rounded-lg font-bold transition backdrop-blur-md"
-                    >
-                        Leave Match
-                    </button>
+                    <div className="flex gap-2">
+                        <button
+                            onClick={() => setShowNetworkMonitor(!showNetworkMonitor)}
+                            className="px-4 py-3 bg-slate-700/50 hover:bg-slate-600/50 text-slate-300 border border-slate-500/30 rounded-lg font-bold transition backdrop-blur-md"
+                            title="Toggle Network Monitor"
+                        >
+                            📊
+                        </button>
+                        <button
+                            onClick={handleLeave}
+                            className="px-6 py-3 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 rounded-lg font-bold transition backdrop-blur-md"
+                        >
+                            Leave Match
+                        </button>
+                    </div>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
@@ -309,9 +347,9 @@ const GamePage = () => {
                                         onKick={canKickPlayers ? handleKick : null}
                                         showTurnIndicator={isTurnBased}
                                         allowKickActions={allowKicks}
-                                        renderRoleBadge={RoleBadge ? (p) => <RoleBadge player={p} /> : null}
-                                        renderStatusBadge={StatusBadge ? (p, ctx) => <StatusBadge player={p} {...ctx} /> : null}
-                                        renderExtraInfo={ExtraInfo ? (p) => <ExtraInfo player={p} /> : null}
+                                        renderRoleBadge={RoleBadge ? (p) => <RoleBadge player={p} currentRoom={currentRoom} /> : null}
+                                        renderStatusBadge={StatusBadge ? (p, ctx) => <StatusBadge player={p} currentRoom={currentRoom} {...ctx} /> : null}
+                                        renderExtraInfo={ExtraInfo ? (p) => <ExtraInfo player={p} currentRoom={currentRoom} /> : null}
                                     />
                                 ))}
                             </div>
@@ -335,6 +373,12 @@ const GamePage = () => {
                 message={kickModal.message}
                 icon="🚫"
                 type="error"
+            />
+
+            {/* Network Monitor */}
+            <NetworkMonitor 
+                room={currentRoom} 
+                enabled={showNetworkMonitor}
             />
         </div>
     );

@@ -110,6 +110,10 @@ const LobbyPage = () => {
 
     const handleJoinRoom = async (roomId, password = '') => {
         const client = new Colyseus.Client(import.meta.env.VITE_WS_URL);
+
+        // Find the room data from availableRooms to get correct gameId
+        const roomData = availableRooms.find(r => r.roomId === roomId);
+
         try {
             const room = await client.joinById(roomId, {
                 password: password,
@@ -117,11 +121,21 @@ const LobbyPage = () => {
                 avatar: user.avatar || ""
             });
 
-            const joinedGameId = room.metadata?.gameId || DEFAULT_GAME_ID;
+            // Use gameId from room listing (which comes from server metadata)
+            // NOT from room.metadata (which may not be synced yet)
+            const joinedGameId = roomData?.metadata?.gameId || room.name || DEFAULT_GAME_ID;
             const joinedGameConfig = getGameConfig(joinedGameId);
 
+            console.log('[LobbyPage] Joining room:', {
+                roomId,
+                roomName: room.name,
+                roomDataGameId: roomData?.metadata?.gameId,
+                metadataGameId: room.metadata?.gameId,
+                selectedGameId: joinedGameId
+            });
+
             joinRoom(room, {
-                roomName: room.metadata?.roomName,
+                roomName: room.metadata?.roomName || roomData?.metadata?.roomName,
                 gameId: joinedGameId,
                 gameName: joinedGameConfig?.name
             });

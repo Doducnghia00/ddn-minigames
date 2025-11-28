@@ -12,6 +12,10 @@
 
 import { CaroScene } from '../games/caro/CaroScene';
 import { CARO_CONFIG } from '../games/caro/config';
+import { TestFFAScene } from '../games/test-ffa/TestFFAScene';
+import { TEST_FFA_CONFIG } from '../games/test-ffa/config';
+import { ShooterScene } from '../games/shooter/ShooterScene';
+import { SHOOTER_CONFIG } from '../games/shooter/config';
 
 /**
  * Registry of all available games
@@ -37,7 +41,45 @@ export const GAME_REGISTRY = {
             roomName: `${user?.name || user?.email || 'Player'}'s Room`,
             password: ''
         })
-    }
+    },
+    'test-ffa': {
+        id: TEST_FFA_CONFIG.id,
+        name: TEST_FFA_CONFIG.name,
+        description: TEST_FFA_CONFIG.description,
+        scene: TestFFAScene,
+        scenes: [TestFFAScene],
+        phaserConfig: TEST_FFA_CONFIG.phaserConfig,
+        minPlayers: TEST_FFA_CONFIG.minPlayers,
+        maxPlayers: TEST_FFA_CONFIG.maxPlayers,
+        lobby: {
+            status: 'Test',
+            emoji: '🧪',
+            accent: 'blue'
+        },
+        createRoomDefaults: (user) => ({
+            roomName: `${user?.name || 'Player'}'s Test Room`,
+            password: ''
+        })
+    },
+    shooter: {
+        id: SHOOTER_CONFIG.id,
+        name: SHOOTER_CONFIG.name,
+        description: SHOOTER_CONFIG.description,
+        scene: ShooterScene,
+        scenes: [ShooterScene],
+        phaserConfig: SHOOTER_CONFIG.phaserConfig,
+        minPlayers: SHOOTER_CONFIG.minPlayers,
+        maxPlayers: SHOOTER_CONFIG.maxPlayers,
+        lobby: {
+            status: 'Active',
+            emoji: '🔫',
+            accent: 'red'
+        },
+        createRoomDefaults: (user) => ({
+            roomName: `${user?.name || 'Player'}'s Arena`,
+            password: ''
+        })
+    },
     // Future games can be added here...
 };
 

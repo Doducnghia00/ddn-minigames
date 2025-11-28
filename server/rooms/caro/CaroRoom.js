@@ -1,11 +1,14 @@
 const { TurnBasedRoom } = require('../base/modes/TurnBasedRoom');
 const { CaroState } = require('./CaroState');
+const { CaroPlayer } = require('./CaroPlayer');
 
 class CaroRoom extends TurnBasedRoom {
     onCreate(options) {
         super.onCreate(options);
 
+        // Apply rate limiting from BaseRoom (inherited)
         this.onMessage("move", (client, message = {}) => {
+            if (!this.checkRateLimit(client)) return;
             this.handleMove(client, message);
         });
     }
@@ -35,8 +38,14 @@ class CaroRoom extends TurnBasedRoom {
     }
 
     createPlayer(options = {}, client) {
-        const player = super.createPlayer(options, client);
-        player.symbol = 0;
+        // Create CaroPlayer instead of base Player
+        const player = new CaroPlayer();
+        player.id = client.sessionId;
+        player.name = options.name || "Player";
+        player.avatar = options.avatar || "";
+        player.isOwner = false;
+        player.isReady = false;
+        player.symbol = 0;  // Caro-specific field
         return player;
     }
 

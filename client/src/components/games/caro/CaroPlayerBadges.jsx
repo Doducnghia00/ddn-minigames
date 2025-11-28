@@ -6,19 +6,22 @@ import React from 'react';
  */
 
 // Role Badge - Displays player's game piece
-export const CaroRoleBadge = ({ player }) => {
-    if (typeof player.symbol === 'undefined') return null;
+export const CaroRoleBadge = ({ player, currentRoom }) => {
+    // Get full player data with game-specific fields from room state
+    const fullPlayer = currentRoom?.state?.players?.get(player.id);
+
+    if (!fullPlayer || typeof fullPlayer.symbol === 'undefined') return null;
 
     const symbolConfig = {
         1: { icon: '✕', label: 'Piece X', color: 'text-red-400', bgColor: 'bg-red-500/20', borderColor: 'border-red-500/40' },
         2: { icon: '◯', label: 'Piece O', color: 'text-blue-400', bgColor: 'bg-blue-500/20', borderColor: 'border-blue-500/40' }
     };
 
-    const config = symbolConfig[player.symbol];
+    const config = symbolConfig[fullPlayer.symbol];
     if (!config) return null;
 
     return (
-        <span 
+        <span
             className={`
                 ${config.color} text-xs font-bold px-2 py-0.5 rounded-full
                 ${config.bgColor} border ${config.borderColor}
