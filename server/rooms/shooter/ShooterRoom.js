@@ -129,21 +129,21 @@ class ShooterRoom extends FreeForAllRoom {
 
         console.log('[ShooterRoom] Player joined:', player.name, '- Total players:', this.state.players.size);
 
-        // If joining mid-match, set as spectator
+        // If joining mid-game, set as spectator
         if (this.state.gameState === 'playing') {
             player.isSpectator = true;
             player.isAlive = false;
-            console.log('[ShooterRoom] Mid-game join - player set as spectator:', player.name);
-        } else {
-            // Normal join
-            player.isSpectator = false;
-            // Reset all players' readiness when someone new joins (consistent with Caro behavior)
-            this.resetReadiness();
+            console.log('[ShooterRoom] Mid-game join -', player.name, 'will spectate until next match');
+        }
 
-            // If not enough players and not playing, ensure waiting state
-            if (this.state.players.size < this.getMinPlayers()) {
-                this.state.gameState = 'waiting';
-            }
+        // Reset all players' readiness when someone new joins (if not playing)
+        if (this.state.gameState !== 'playing') {
+            this.resetReadiness();
+        }
+
+        // If not enough players and not playing, ensure waiting state
+        if (this.state.players.size < this.getMinPlayers() && this.state.gameState !== 'playing') {
+            this.state.gameState = 'waiting';
         }
     }
 
@@ -177,17 +177,17 @@ class ShooterRoom extends FreeForAllRoom {
     onGameStart() {
         super.onGameStart();
 
-        console.log('[ShooterRoom] Match starting - spawning players');
+        console.log('[ShooterRoom] Match starting - spawning all players');
 
-        // Reset spectator flags and spawn all players
-        for (const [sessionId, player] of this.state.players) {
-            player.isSpectator = false; // Former spectators can now play
-            this.spawnPlayer(player);
-        }
-
-        // Clear all bullets from previous match
+        // Clear bullets from previous match
         this.state.bullets.clear();
         this.nextBulletId = 0;
+
+        // Spawn all players and clear spectator flags
+        for (const [sessionId, player] of this.state.players) {
+            player.isSpectator = false; // Everyone can play now
+            this.spawnPlayer(player);
+        }
     }
 
     /**
@@ -296,6 +296,9 @@ class ShooterRoom extends FreeForAllRoom {
      * @param {number} deltaTime - Time since last update in seconds
      */
     onGameUpdate(deltaTime) {
+        // Safety check - only update if game is still playing
+        if (this.state.gameState !== 'playing') return;
+
         // Update player positions
         this.updatePlayerPositions(deltaTime);
 
@@ -333,6 +336,10 @@ class ShooterRoom extends FreeForAllRoom {
     updateBulletPositions(deltaTime) {
         for (let i = 0; i < this.state.bullets.length; i++) {
             const bullet = this.state.bullets[i];
+
+            // Safety check
+            if (!bullet) continue;
+
             bullet.x += bullet.velocityX * deltaTime;
             bullet.y += bullet.velocityY * deltaTime;
         }
@@ -342,9 +349,15 @@ class ShooterRoom extends FreeForAllRoom {
      * Check collisions between bullets and players
      */
     checkCollisions() {
+        // Safety check - if game ended during this function, stop processing
+        if (this.state.gameState !== 'playing') return;
+
         // Iterate backwards to safely remove bullets
         for (let i = this.state.bullets.length - 1; i >= 0; i--) {
             const bullet = this.state.bullets[i];
+
+            // Safety check - bullet might be undefined if bullets were cleared
+            if (!bullet) continue;
 
             for (const [playerId, player] of this.state.players) {
                 if (!player.isAlive) continue;
@@ -365,6 +378,10 @@ class ShooterRoom extends FreeForAllRoom {
                     break; // Bullet can only hit one player
                 }
             }
+
+            // Check again if game is still playing after each collision check
+            // (handlePlayerHit might have ended the match)
+            if (this.state.gameState !== 'playing') return;
         }
     }
 
@@ -456,6 +473,9 @@ class ShooterRoom extends FreeForAllRoom {
         for (let i = this.state.bullets.length - 1; i >= 0; i--) {
             const bullet = this.state.bullets[i];
 
+            // Safety check
+            if (!bullet) continue;
+
             // Remove if expired (lifetime exceeded)
             if (now - bullet.createdAt > bullet.lifetime) {
                 this.state.bullets.splice(i, 1);
@@ -476,10 +496,14 @@ class ShooterRoom extends FreeForAllRoom {
     onMatchEnd() {
         console.log('[ShooterRoom] Match ended');
 
-        // Stop all player movement
+        // Stop all player movement and reset states
         for (const [, player] of this.state.players) {
             player.velocityX = 0;
             player.velocityY = 0;
+            
+            // Reset player to alive state (so UI doesn't show "Respawning...")
+            player.isAlive = true;
+            player.health = player.maxHealth;
         }
 
         // Clear all bullets

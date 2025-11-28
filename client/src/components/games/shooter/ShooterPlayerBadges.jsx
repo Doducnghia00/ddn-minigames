@@ -70,6 +70,12 @@ export const ShooterStatusBadge = ({ player, gameState, currentRoom }) => {
         }
     }
 
+    // Finished state - không hiển thị alive/dead status nữa
+    // (server đã reset isAlive = true cho tất cả players)
+    if (gameState === 'finished') {
+        return null;
+    }
+
     return null;
 };
 

@@ -223,24 +223,20 @@ export class ShooterScene extends FreeForAllGameScene {
         this.crosshair = this.add.graphics();
         this.crosshair.setDepth(1000).setScrollFactor(0);
 
-        // ====== BOTTOM CENTER: STATUS MESSAGES ======
+        // ====== BOTTOM CENTER: RESPAWN MESSAGE (hidden by default) ======
 
-        // Background panel for messages (respawn/spectator)
-        this.statusMessageBg = this.add.rectangle(centerX, height - 60, 600, 60, 0x000000, 0.9)
-            .setOrigin(0.5).setScrollFactor(0).setDepth(100).setVisible(false);
+        this.respawnMessageBg = this.add.rectangle(centerX, height - 100, 400, 50, 0x8b0000, 0.95)
+            .setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(200).setVisible(false);
 
-        this.statusMessageBorder = this.add.rectangle(centerX, height - 60, 600, 60)
-            .setOrigin(0.5).setScrollFactor(0).setDepth(100)
-            .setStrokeStyle(2, 0x00ff88, 0.7).setVisible(false);
+        this.respawnMessageBorder = this.add.rectangle(centerX, height - 100, 400, 50)
+            .setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(200)
+            .setStrokeStyle(3, 0xff0000).setVisible(false);
 
-        // Status message text (respawn or spectating)
-        this.statusMessage = this.add.text(centerX, height - 60, '', {
+        this.respawnMessage = this.add.text(centerX, height - 100, '💀 ELIMINATED - Respawning...', {
             fontSize: '18px',
-            color: '#ffffff',
-            fontStyle: 'bold',
-            stroke: '#000000',
-            strokeThickness: 3
-        }).setOrigin(0.5).setScrollFactor(0).setDepth(101).setVisible(false);
+            color: '#ffcccc',
+            fontStyle: 'bold'
+        }).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(201).setVisible(false);
     }
 
     /**
@@ -998,35 +994,64 @@ export class ShooterScene extends FreeForAllGameScene {
         // Update K/D
         this.kdText.setText(`⚔️ ${myPlayer.kills || 0}  💀 ${myPlayer.deaths || 0}`);
 
-        // Update status message visibility and text
-        let shouldShowStatus = false;
-        let statusText = '';
-        let borderColor = 0x00ff88;
-
-        if (this.gameState === 'playing') {
+        // Show death/spectating message
+        if (!myPlayer.isAlive) {
             if (myPlayer.isSpectator) {
-                // Spectating mid-game join
-                shouldShowStatus = true;
-                statusText = '🎬 Spectating - You will join next match';
-                borderColor = 0x00aaff;
-            } else if (!myPlayer.isAlive) {
-                // Dead, waiting for respawn
-                shouldShowStatus = true;
-                statusText = '💀 Waiting for respawn...';
-                borderColor = 0xff0000;
+                // Mid-game join - spectating
+                if (!this.deathMessage || this.deathMessage.text !== '👁️ Spectating...') {
+                    if (this.deathMessage) this.deathMessage.destroy();
+                    this.deathMessage = this.add.text(400, 300, '👁️ Spectating...', {
+                        fontSize: '32px',
+                        color: '#00ff88',
+                        fontStyle: 'bold',
+                        stroke: '#000000',
+                        strokeThickness: 4
+                    }).setOrigin(0.5).setDepth(1000).setScrollFactor(0);
+
+                    const subText = this.add.text(400, 340, 'You will spawn in the next match', {
+                        fontSize: '18px',
+                        color: '#ffffff'
+                    }).setOrigin(0.5).setDepth(1000).setScrollFactor(0);
+
+                    this.deathMessageSub = subText;
+                }
+            } else {
+                // Normal death - show respawn info
+                if (!this.deathMessage || this.deathMessage.text.startsWith('💀')) {
+                    if (this.deathMessage) this.deathMessage.destroy();
+                    if (this.deathMessageSub) this.deathMessageSub.destroy();
+
+                    this.deathMessage = this.add.text(400, 300, '💀 You died!', {
+                        fontSize: '32px',
+                        color: '#ff4444',
+                        fontStyle: 'bold',
+                        stroke: '#000000',
+                        strokeThickness: 4
+                    }).setOrigin(0.5).setDepth(1000).setScrollFactor(0);
+                }
+            }
+        } else {
+            // Alive - clear death message
+            if (this.deathMessage) {
+                this.deathMessage.destroy();
+                this.deathMessage = null;
+            }
+            if (this.deathMessageSub) {
+                this.deathMessageSub.destroy();
+                this.deathMessageSub = null;
             }
         }
 
-        this.statusMessageBg.setVisible(shouldShowStatus);
-        this.statusMessageBorder.setVisible(shouldShowStatus);
-        this.statusMessageBorder.setStrokeStyle(2, borderColor, 0.7);
-        this.statusMessage.setVisible(shouldShowStatus);
-        this.statusMessage.setText(statusText);
+        // Update respawn message visibility - CHỈ hiển thị khi đang playing VÀ dead
+        const shouldShowRespawnMsg = this.gameState === 'playing' && !myPlayer.isAlive && !myPlayer.isSpectator;
+        this.respawnMessageBg.setVisible(shouldShowRespawnMsg);
+        this.respawnMessageBorder.setVisible(shouldShowRespawnMsg);
+        this.respawnMessage.setVisible(shouldShowRespawnMsg);
 
-        // Pulse effect when showing status
-        if (shouldShowStatus) {
+        // Pulse effect when dead
+        if (shouldShowRespawnMsg) {
             const alpha = 0.8 + Math.sin(Date.now() / 200) * 0.2;
-            this.statusMessage.setAlpha(alpha);
+            this.respawnMessage.setAlpha(alpha);
         }
     }
 

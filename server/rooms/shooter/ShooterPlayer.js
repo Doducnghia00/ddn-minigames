@@ -32,11 +32,11 @@ class ShooterPlayer extends FFAPlayer {
         this.maxHealth = SHOOTER_CONFIG.player.maxHealth;
         this.isAlive = true;
 
+        // Spectator (for mid-game joins)
+        this.isSpectator = false;
+
         // Weapon
         this.lastFireTime = 0;  // Server timestamp of last shot
-
-        // Spectator (for mid-game joiners)
-        this.isSpectator = false;
     }
 }
 
@@ -49,7 +49,7 @@ type('number')(ShooterPlayer.prototype, 'rotation');
 type('number')(ShooterPlayer.prototype, 'health');
 type('number')(ShooterPlayer.prototype, 'maxHealth');
 type('boolean')(ShooterPlayer.prototype, 'isAlive');
-type('number')(ShooterPlayer.prototype, 'lastFireTime');
 type('boolean')(ShooterPlayer.prototype, 'isSpectator');
+type('number')(ShooterPlayer.prototype, 'lastFireTime');
 
 module.exports = { ShooterPlayer };
