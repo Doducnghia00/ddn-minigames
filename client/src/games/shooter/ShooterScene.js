@@ -70,27 +70,21 @@ export class ShooterScene extends FreeForAllGameScene {
     setupServerMessages() {
         if (!this.room) return;
 
-        console.log('[ShooterScene] Setting up server messages...');
-
         // Listen to kill events
         this.room.onMessage('player_killed', (data) => {
-            console.log('[ShooterScene] Player killed:', data);
             this.showKillNotification(data);
         });
 
         // Listen to respawn events
         this.room.onMessage('player_respawned', (data) => {
-            console.log('[ShooterScene] Player respawned:', data.playerName);
+            // console.log('[ShooterScene] Player respawned:', data.playerName);
         });
 
         // Listen to bullet creation (server-confirmed) for muzzle flash
         this.room.state.bullets.onAdd((bullet) => {
-            console.log('[ShooterScene] Bullet added:', bullet.id, 'Owner:', bullet.ownerId, 'My sessionId:', this.room.sessionId);
-            
             // Only show muzzle flash for bullets created by local player
             if (bullet.ownerId === this.room.sessionId) {
                 const owner = this.room.state.players.get(bullet.ownerId);
-                console.log('[ShooterScene] Showing muzzle flash for my bullet at:', bullet.x, bullet.y);
                 if (owner) {
                     this.showMuzzleFlash(bullet.x, bullet.y, bullet.rotation);
                 }
@@ -592,8 +586,6 @@ export class ShooterScene extends FreeForAllGameScene {
     }
 
     onPlayerRemoved(sessionId) {
-        console.log('[ShooterScene] Player removed:', sessionId);
-
         const playerObj = this.playerSprites.get(sessionId);
         if (playerObj) {
             playerObj.sprite.destroy();
@@ -957,7 +949,6 @@ export class ShooterScene extends FreeForAllGameScene {
 
             // Auto-create sprite if missing (fallback for missed onPlayerAdded)
             if (!playerObj) {
-                console.warn('[ShooterScene] Player sprite missing for:', sessionId, '- creating now (fallback)');
                 this.onPlayerAdded(player, sessionId);
 
                 // IMPORTANT: Also setup listeners for score tracking!

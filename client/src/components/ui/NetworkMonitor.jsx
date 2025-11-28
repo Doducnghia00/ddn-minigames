@@ -32,6 +32,8 @@ export const NetworkMonitor = ({ room, enabled = true }) => {
         let messagesSent = 0;
         let messagesReceived = 0;
         let lastUpdate = Date.now();
+        let currentRTT = 0;
+        let pingStartTime = 0;
 
         // Track messages sent
         const originalSend = room.send.bind(room);
@@ -56,8 +58,24 @@ export const NetworkMonitor = ({ room, enabled = true }) => {
             };
         }
 
+        // Setup ping-pong mechanism for accurate RTT measurement
+        room.onMessage('pong', () => {
+            if (pingStartTime > 0) {
+                currentRTT = Date.now() - pingStartTime;
+                pingStartTime = 0;
+            }
+        });
+
+        // Send ping every 2 seconds for RTT measurement
+        const pingInterval = setInterval(() => {
+            if (pingStartTime === 0) { // Only send if previous ping completed
+                pingStartTime = Date.now();
+                room.send('ping');
+            }
+        }, 2000);
+
         // Update stats every second
-        const interval = setInterval(() => {
+        const statsInterval = setInterval(() => {
             const now = Date.now();
             const deltaTime = (now - lastUpdate) / 1000;
 
@@ -72,8 +90,8 @@ export const NetworkMonitor = ({ room, enabled = true }) => {
             const totalBytes = estimatedSent + estimatedReceived;
             const bandwidthKBps = (totalBytes / 1024 / deltaTime).toFixed(2);
 
-            // Get RTT from Colyseus (if available)
-            const rtt = room._pingInterval ? Math.round(room._pingSent ? Date.now() - room._pingSent : 0) : 0;
+            // Use measured RTT
+            const rtt = Math.round(currentRTT);
 
             // Determine connection quality
             let quality = 'excellent';
@@ -98,7 +116,8 @@ export const NetworkMonitor = ({ room, enabled = true }) => {
         }, 1000);
 
         return () => {
-            clearInterval(interval);
+            clearInterval(pingInterval);
+            clearInterval(statsInterval);
         };
     }, [room, enabled]);
 

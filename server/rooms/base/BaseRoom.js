@@ -55,6 +55,11 @@ class BaseRoom extends Room {
     }
 
     registerBaseMessageHandlers() {
+        // Ping-pong for RTT measurement (bypass rate limit as it's needed for network stats)
+        this.onMessage("ping", (client) => {
+            client.send("pong");
+        });
+
         this.onMessage("toggle_ready", (client, message) => {
             if (!this.checkRateLimit(client)) return;
             this.handleToggleReady(client, message?.ready);
