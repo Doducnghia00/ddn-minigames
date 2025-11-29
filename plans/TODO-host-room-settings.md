@@ -3,7 +3,7 @@
 **Status:** 📋 Planning  
 **Priority:** 🟢 High (Quality of Life Feature)  
 **Estimated Effort:** ~6-8 hours  
-**Prerequisite:** ⚠️ Cần hoàn thành `TODO-caro-config-refactor.md` trước
+**Prerequisite:** ⚠️ Cần hoàn thành `TODO-config-refactor.md` trước
 
 ---
 
