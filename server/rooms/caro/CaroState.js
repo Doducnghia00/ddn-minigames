@@ -14,12 +14,22 @@ class CaroState extends TurnBasedRoomState {
         for (let i = 0; i < cellCount; i++) {
             this.board.push(0);
         }
+
+        // Room-specific configurable settings (synced to clients)
+        this.cfg_boardSize = boardSize;
+        this.cfg_winCondition = winCondition;
+        this.cfg_timePerTurn = CARO_CONFIG.turn.timeLimit;
     }
 }
 
 type(["number"])(CaroState.prototype, "board");
 type("number")(CaroState.prototype, "boardSize");
 type("number")(CaroState.prototype, "winCondition");
+
+// Configurable settings fields
+type("number")(CaroState.prototype, "cfg_boardSize");
+type("number")(CaroState.prototype, "cfg_winCondition");
+type("number")(CaroState.prototype, "cfg_timePerTurn");
 // Note: players field is inherited from BaseRoomState and uses base Player type by default
 // CaroPlayer type is enforced by CaroRoom.createPlayer() method
 

@@ -208,7 +208,7 @@ export class CaroScene extends TurnBasedGameScene {
                 clearTimeout(this.gameOverTimeout);
                 this.gameOverTimeout = null;
             }
-            
+
             this.gameState = 'playing';
             this.hideGameOverModal();
             this.updateGameUI();
@@ -659,12 +659,12 @@ export class CaroScene extends TurnBasedGameScene {
                 });
             } else {
                 // Normal animation
-                this.tweens.add({
-                    targets: text,
-                    scale: { from: 0, to: 1 },
-                    duration: 200,
-                    ease: 'Back.out'
-                });
+            this.tweens.add({
+                targets: text,
+                scale: { from: 0, to: 1 },
+                duration: 200,
+                ease: 'Back.out'
+            });
             }
 
             this.boardMarks.set(index, text);

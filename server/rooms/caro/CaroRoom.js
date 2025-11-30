@@ -2,6 +2,7 @@ const { TurnBasedRoom } = require('../base/modes/TurnBasedRoom');
 const { CaroState } = require('./CaroState');
 const { CaroPlayer } = require('./CaroPlayer');
 const { CARO_CONFIG } = require('./caro-config');
+const { validateAllSettings } = require('./settings-validator');
 
 class CaroRoom extends TurnBasedRoom {
     constructor() {
@@ -14,15 +15,30 @@ class CaroRoom extends TurnBasedRoom {
             timePerTurn: CARO_CONFIG.turn.timeLimit,
             allowUndo: CARO_CONFIG.turn.allowUndo
         };
+
+        // Room-specific customizable settings (host can modify)
+        this.roomSettings = {
+            boardSize: CARO_CONFIG.board.size,
+            winCondition: CARO_CONFIG.board.winCondition,
+            timePerTurn: CARO_CONFIG.turn.timeLimit
+        };
     }
 
     onCreate(options) {
         super.onCreate(options);
 
+        // Sync initial settings to state
+        this.syncSettingsToState();
+
         // Apply rate limiting from BaseRoom (inherited)
         this.onMessage("move", (client, message = {}) => {
             if (!this.checkRateLimit(client)) return;
             this.handleMove(client, message);
+        });
+
+        // Handle settings updates (host only)
+        this.onMessage("update_settings", (client, data = {}) => {
+            this.handleUpdateSettings(client, data);
         });
     }
 
@@ -99,7 +115,36 @@ class CaroRoom extends TurnBasedRoom {
     }
 
     onGameStart() {
-        this.clearBoard();
+        // Apply room settings to game config
+        this.gameConfig.boardSize = this.roomSettings.boardSize;
+        this.gameConfig.winCondition = this.roomSettings.winCondition;
+        this.gameConfig.timePerTurn = this.roomSettings.timePerTurn;
+
+        // If board size changed, recreate state with new size
+        if (this.state.boardSize !== this.gameConfig.boardSize || 
+            this.state.winCondition !== this.gameConfig.winCondition) {
+            
+            // Preserve players
+            const players = new Map(this.state.players);
+            
+            // Recreate state with new board size
+            this.setState(new CaroState(this.gameConfig.boardSize, this.gameConfig.winCondition));
+            
+            // Restore players and room owner
+            this.state.players = players;
+            // roomOwner is already in the recreated state from previous state
+            const currentOwner = Array.from(players.entries()).find(([id, p]) => p.isOwner);
+            if (currentOwner) {
+                this.state.roomOwner = currentOwner[0];
+            }
+            this.state.gameState = 'playing';
+            
+            // Re-sync settings
+            this.syncSettingsToState();
+        } else {
+            // Just clear existing board
+            this.clearBoard();
+        }
 
         const startingPlayerId = this.getStartingPlayerId();
         if (!startingPlayerId) {
@@ -169,6 +214,98 @@ class CaroRoom extends TurnBasedRoom {
         this.clearCurrentTurn();
         this.resetReadiness();
         this.broadcast("game_over", { winner: winnerId });
+    }
+
+    // ===== SETTINGS MANAGEMENT =====
+
+    /**
+     * Sync room settings to state (for client display)
+     */
+    syncSettingsToState() {
+        this.state.cfg_boardSize = this.roomSettings.boardSize;
+        this.state.cfg_winCondition = this.roomSettings.winCondition;
+        this.state.cfg_timePerTurn = this.roomSettings.timePerTurn;
+
+        // Also update the actual fields for immediate preview
+        // (only when not playing - during match, these should not change)
+        if (this.state.gameState !== 'playing') {
+            this.state.boardSize = this.roomSettings.boardSize;
+            this.state.winCondition = this.roomSettings.winCondition;
+        }
+    }
+
+    /**
+     * Handle settings update request from client
+     */
+    handleUpdateSettings(client, data) {
+        // 1. Check if sender is host
+        if (client.sessionId !== this.state.roomOwner) {
+            client.send('settings_error', { error: 'Only host can change settings' });
+            return;
+        }
+
+        // 2. Check if game is not playing
+        if (this.state.gameState === 'playing') {
+            client.send('settings_error', { error: 'Cannot change settings during match' });
+            return;
+        }
+
+        // 3. Validate settings
+        const { validated, errors } = validateAllSettings(data.settings || {});
+
+        if (errors.length > 0) {
+            client.send('settings_error', { errors });
+            return;
+        }
+
+        // 4. Apply settings
+        this.applySettings(validated);
+
+        // 5. Broadcast success
+        const hostPlayer = this.state.players.get(client.sessionId);
+        this.broadcast('settings_updated', {
+            settings: this.getCurrentSettings(),
+            updatedBy: hostPlayer?.name || 'Host'
+        });
+
+        console.log(`[CaroRoom] Settings updated by ${hostPlayer?.name}:`, validated);
+    }
+
+    /**
+     * Apply validated settings
+     */
+    applySettings(settings) {
+        const oldBoardSize = this.roomSettings.boardSize;
+        
+        // Update room settings
+        Object.assign(this.roomSettings, settings);
+
+        // Update gameConfig for next match
+        Object.assign(this.gameConfig, settings);
+
+        // If board size changed and game is not playing, recreate board array
+        if (settings.boardSize && settings.boardSize !== oldBoardSize && this.state.gameState !== 'playing') {
+            const newSize = settings.boardSize;
+            const newCellCount = newSize * newSize;
+            
+            // Recreate board array with new size
+            this.state.board.clear();
+            for (let i = 0; i < newCellCount; i++) {
+                this.state.board.push(0);
+            }
+            
+            console.log(`[CaroRoom] Board size changed: ${oldBoardSize}x${oldBoardSize} -> ${newSize}x${newSize}`);
+        }
+
+        // Sync to state for clients (this will trigger canvas re-render)
+        this.syncSettingsToState();
+    }
+
+    /**
+     * Get current settings
+     */
+    getCurrentSettings() {
+        return { ...this.roomSettings };
     }
 
     clearBoard() {

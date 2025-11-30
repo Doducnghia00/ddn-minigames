@@ -8,6 +8,7 @@ import { getMergedGameProfile } from '../config/gameProfiles';
 import PlayerCard from '../components/games/PlayerCard';
 import Modal from '../components/ui/Modal';
 import NetworkMonitor from '../components/ui/NetworkMonitor';
+import { GameSettingsPanel } from '../components/room/GameSettingsPanel';
 
 const GamePage = () => {
     const navigate = useNavigate();
@@ -414,15 +415,12 @@ const GamePage = () => {
                             </div>
                         </div>
 
-                        {/* Reserved space for future features */}
-                        <div className="glass-effect rounded-xl p-4 shadow-lg min-h-[120px] border border-dashed border-slate-600/70">
-                            <div className="text-xs text-gray-500 uppercase font-bold tracking-wider mb-1">
-                                Game Settings
-                            </div>
-                            <p className="text-sm text-slate-400">
-                                Coming soon...
-                            </p>
-                        </div>
+                        {/* Game Settings Panel (Host only) */}
+                        <GameSettingsPanel
+                            room={currentRoom}
+                            isHost={currentRoom?.sessionId === roomOwner}
+                            gameId={activeGameId}
+                        />
                     </div>
                 </div>
             </div>
