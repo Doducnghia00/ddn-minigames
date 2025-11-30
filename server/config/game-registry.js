@@ -11,6 +11,7 @@
 const { ShooterRoom } = require('../rooms/shooter/ShooterRoom');
 const { SHOOTER_CONFIG } = require('../rooms/shooter/shooter-config');
 const { CaroRoom } = require('../rooms/caro/CaroRoom');
+const { CARO_CONFIG } = require('../rooms/caro/caro-config');
 const { TestFFARoom } = require('../rooms/test-ffa/TestFFARoom');
 
 const GAME_REGISTRY = {
@@ -40,10 +41,7 @@ const GAME_REGISTRY = {
         enabled: true,
         roomClass: CaroRoom,
         roomName: 'caro',
-        config: {
-            match: { minPlayers: 2, maxPlayers: 2 },
-            arena: { width: 800, height: 800 }
-        },
+        config: CARO_CONFIG,
         metadata: {
             name: 'Caro Online',
             description: 'Classic 5-in-a-row board game',

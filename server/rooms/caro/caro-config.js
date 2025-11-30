@@ -1,10 +1,21 @@
 /**
  * Caro Game Configuration
- * Central place for all game balance and settings
  * 
- * Adjust these values to tune gameplay without modifying core logic
+ * This file contains:
+ * 1. CARO_CONFIG: Default game configuration values
+ * 2. CARO_CUSTOMIZABLE_SETTINGS: Metadata for host-customizable settings
+ * 
+ * @module caro-config
  */
 
+/**
+ * Default Caro Game Configuration
+ * 
+ * These are the default values used when creating a new room.
+ * Some of these can be customized by room host (see CARO_CUSTOMIZABLE_SETTINGS).
+ * 
+ * @type {Object}
+ */
 const CARO_CONFIG = {
     // ===== BOARD SETTINGS =====
     board: {
@@ -24,11 +35,10 @@ const CARO_CONFIG = {
         maxPlayers: 2,              // Always 2 for Caro
     },
 
-    // ===== RENDER SETTINGS (Client-side reference) =====
-    render: {
-        cellSize: 40,               // Default cell size in pixels
-        canvasWidth: 800,           // Canvas width // TODO: Kiểm tra, vô dụng vì bị trùng với game-registry.js
-        canvasHeight: 600,          // Canvas height // TODO: Kiểm tra, vô dụng vì bị trùng với game-registry.js
+    // ===== ARENA SETTINGS =====
+    arena: {
+        width: 800,                 // Arena width in pixels (square for board game)
+        height: 800,                // Arena height in pixels
     },
 
     // ===== GAME BALANCE NOTES =====
@@ -51,5 +61,59 @@ const CARO_CONFIG = {
 // Helper: Calculate total cell count
 CARO_CONFIG.board.cellCount = CARO_CONFIG.board.size * CARO_CONFIG.board.size;
 
-module.exports = { CARO_CONFIG };
+/**
+ * Customizable Settings Metadata
+ * 
+ * Defines which settings can be customized by room host and their constraints.
+ * Settings NOT listed here are locked (server-controlled) and cannot be changed by users.
+ * 
+ * LOCKED settings (cannot be customized):
+ * - match.minPlayers, match.maxPlayers: Game-specific (always 2 for Caro)
+ * - arena.width, arena.height: Client already initialized canvas with these
+ */
+const CARO_CUSTOMIZABLE_SETTINGS = {
+    boardSize: {
+        path: 'board.size',
+        min: 10,
+        max: 20,
+        step: 1,
+        default: 15,
+        editable: true,
+        label: 'Board Size',
+        description: 'Width and height of the game board',
+        category: 'board',
+        unit: 'cells'
+    },
+
+    winCondition: {
+        path: 'board.winCondition',
+        min: 4,
+        max: 6,
+        step: 1,
+        default: 5,
+        editable: true,
+        label: 'Win Condition',
+        description: 'Consecutive marks needed to win',
+        category: 'rules',
+        unit: 'in a row'
+    },
+
+    timePerTurn: {
+        path: 'turn.timeLimit',
+        min: 0,
+        max: 120,
+        step: 5,
+        default: 0,
+        editable: true,
+        label: 'Time Per Turn',
+        description: 'Seconds per turn (0 = unlimited)',
+        category: 'timing',
+        unit: 'seconds'
+    },
+};
+
+module.exports = { 
+    CARO_CONFIG,
+    CARO_CUSTOMIZABLE_SETTINGS 
+};
 

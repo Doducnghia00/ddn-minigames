@@ -3,7 +3,7 @@
 **Status:** 📋 Planning  
 **Priority:** 🟢 High (Quality of Life Feature)  
 **Estimated Effort:** ~6-8 hours  
-**Prerequisite:** ⚠️ Cần hoàn thành `TODO-config-refactor.md` trước
+**Prerequisite:** ✅ Config refactor hoàn thành - `SHOOTER_CUSTOMIZABLE_SETTINGS` và `CARO_CUSTOMIZABLE_SETTINGS` đã được implement
 
 ---
 
@@ -102,81 +102,76 @@ Click vào "⚙️ Game Settings" sẽ hiện modal:
 
 ---
 
-## Phân tích kỹ thuật
+### 1. Configurable Settings Metadata
 
-### 1. Configurable Settings
+✅ **Config đã được refactor** với metadata-based approach!
 
-⚠️ **Lưu ý**: Trước khi implement feature này, cần refactor Caro config trước (xem `TODO-caro-config-refactor.md`)
+#### Shooter Settings (7 customizable)
 
-#### Shooter Settings
-
-Các settings có thể điều chỉnh (theo `server/rooms/shooter/shooter-config.js`):
-
-#### Match Settings
-```javascript
-{
-    scoreLimit: 15,           // Range: 5-50, Step: 5
-    matchDuration: 300,       // Range: 120-600 (2-10 mins), Step: 60
-}
-```
-
-#### Player Settings
-```javascript
-{
-    moveSpeed: 200,           // Range: 150-300, Step: 10
-    respawnDelay: 3,          // Range: 1-10, Step: 1
-}
-```
-
-#### Weapon Settings
-```javascript
-{
-    fireRate: 300,            // Range: 100-1000, Step: 50
-    bulletSpeed: 400,         // Range: 200-800, Step: 50
-    bulletDamage: 20,         // Range: 10-50, Step: 5
-}
-```
-
-#### Arena Settings (Future)
-```javascript
-{
-    arenaSize: 'medium',      // Options: 'small', 'medium', 'large'
-    // Map selection khi có nhiều maps
-}
-```
-
-#### Caro Settings
-
-Các settings có thể điều chỉnh (sau khi refactor - xem `TODO-caro-config-refactor.md`):
+Được định nghĩa trong `SHOOTER_CUSTOMIZABLE_SETTINGS` (xem `server/rooms/shooter/shooter-config.js`):
 
 ```javascript
-{
-    boardSize: 15,            // Range: 10-20, Step: 1
-    winCondition: 5,          // Range: 4-6, Step: 1
-    timePerTurn: 30,          // Range: 15-120 (seconds), Step: 5
-    allowUndo: false,         // Boolean: enable/disable undo
-}
-```
+const { SHOOTER_CUSTOMIZABLE_SETTINGS } = require('./shooter-config');
 
-### 2. Constraints & Validation
-
-**Server-side validation** là bắt buộc để chống cheat:
-
-```javascript
-const SETTINGS_CONSTRAINTS = {
-    scoreLimit: { min: 5, max: 50, step: 5, default: 15 },
-    matchDuration: { min: 120, max: 600, step: 60, default: 300 },
+// Tất cả metadata đã có sẵn:
+SHOOTER_CUSTOMIZABLE_SETTINGS = {
+    scoreLimit: {
+        path: 'match.scoreLimit',
+        min: 5, max: 50, step: 5, default: 5,
+        label: 'Score Limit',
+        description: 'Kills needed to win the match',
+        category: 'victory',
+        unit: 'kills'
+    },
+    matchDuration: {
+        path: 'match.matchDuration',
+        min: 120, max: 600, step: 60, default: 300,
+        label: 'Match Duration',
+        category: 'match',
+        unit: 'seconds'
+    },
     moveSpeed: { min: 150, max: 300, step: 10, default: 200 },
     respawnDelay: { min: 1, max: 10, step: 1, default: 3 },
-    fireRate: { min: 100, max: 1000, step: 50, default: 300 },
-    bulletSpeed: { min: 200, max: 800, step: 50, default: 400 },
-    bulletDamage: { min: 10, max: 50, step: 5, default: 20 }
+    fireRate: { min: 100, max: 1000, step: 50, default: 800 },
+    bulletSpeed: { min: 200, max: 800, step: 50, default: 500 },
+    bulletDamage: { min: 10, max: 50, step: 5, default: 25 }
 };
 ```
 
-### 3. State Management
+**Locked Settings** (KHÔNG được customize):
+- ❌ `match.minPlayers` / `match.maxPlayers` - Game logic
+- ❌ `match.patchRate` - Server performance
+- ❌ `arena.width` / `arena.height` - Client đã init canvas
+- ❌ `player.maxHealth`, `player.hitboxRadius` - Core mechanics
 
-Settings được lưu ở **room-level**, không persist vào database:
+#### Caro Settings (3 customizable)
+
+Được định nghĩa trong `CARO_CUSTOMIZABLE_SETTINGS` (xem `server/rooms/caro/caro-config.js`):
+
+```javascript
+const { CARO_CUSTOMIZABLE_SETTINGS } = require('./caro-config');
+
+CARO_CUSTOMIZABLE_SETTINGS = {
+    boardSize: {
+        path: 'board.size',
+        min: 10, max: 20, step: 1, default: 15,
+        label: 'Board Size',
+        category: 'board'
+    },
+    winCondition: {
+        path: 'board.winCondition',
+        min: 4, max: 6, step: 1, default: 5,
+        label: 'Win Condition',
+        category: 'rules'
+    },
+    timePerTurn: {
+        path: 'turn.timeLimit',
+        min: 0, max: 120, step: 5, default: 0,
+        label: 'Time Per Turn',
+        category: 'timing'
+    }
+};
+```
 
 ```javascript
 // server/rooms/shooter/ShooterRoom.js
@@ -235,35 +230,39 @@ class ShooterState extends Schema {
 **File:** `server/rooms/shooter/settings-validator.js` (NEW)
 
 ```javascript
-const SETTINGS_CONSTRAINTS = {
-    scoreLimit: { min: 5, max: 50, step: 5, default: 15 },
-    matchDuration: { min: 120, max: 600, step: 60, default: 300 },
-    moveSpeed: { min: 150, max: 300, step: 10, default: 200 },
-    respawnDelay: { min: 1, max: 10, step: 1, default: 3 },
-    fireRate: { min: 100, max: 1000, step: 50, default: 300 },
-    bulletSpeed: { min: 200, max: 800, step: 50, default: 400 },
-    bulletDamage: { min: 10, max: 50, step: 5, default: 20 }
-};
+// ✅ KHÔNG CẦN tạo SETTINGS_CONSTRAINTS riêng!
+// Sử dụng metadata có sẵn từ config
+const { SHOOTER_CUSTOMIZABLE_SETTINGS } = require('./shooter-config');
 
 function validateSetting(key, value) {
-    const constraint = SETTINGS_CONSTRAINTS[key];
-    if (!constraint) return { valid: false, error: 'Unknown setting' };
+    const setting = SHOOTER_CUSTOMIZABLE_SETTINGS[key];
     
-    const numValue = Number(value);
-    if (isNaN(numValue)) return { valid: false, error: 'Not a number' };
-    
-    if (numValue < constraint.min || numValue > constraint.max) {
+    // 1. Check if setting exists and is editable
+    if (!setting || !setting.editable) {
         return { 
             valid: false, 
-            error: `Value must be between ${constraint.min} and ${constraint.max}` 
+            error: `Setting '${key}' is not customizable` 
         };
     }
     
-    // Check step alignment
-    if ((numValue - constraint.min) % constraint.step !== 0) {
+    // 2. Validate type and range
+    const numValue = Number(value);
+    if (isNaN(numValue)) {
+        return { valid: false, error: 'Not a number' };
+    }
+    
+    if (numValue < setting.min || numValue > setting.max) {
         return { 
             valid: false, 
-            error: `Value must be in steps of ${constraint.step}` 
+            error: `Must be between ${setting.min} and ${setting.max}` 
+        };
+    }
+    
+    // 3. Validate step alignment
+    if ((numValue - setting.min) % setting.step !== 0) {
+        return { 
+            valid: false, 
+            error: `Must be in steps of ${setting.step}` 
         };
     }
     
@@ -287,11 +286,12 @@ function validateAllSettings(settings) {
 }
 
 module.exports = { 
-    SETTINGS_CONSTRAINTS, 
     validateSetting, 
     validateAllSettings 
 };
 ```
+
+**Ưu điểm**: Single source of truth - metadata dùng cho cả validation và UI generation!
 
 #### 1.3. Settings Message Handler
 

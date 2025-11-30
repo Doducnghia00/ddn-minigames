@@ -39,11 +39,11 @@ class CaroRoom extends TurnBasedRoom {
     }
 
     getMinPlayers() {
-        return 2;
+        return CARO_CONFIG.match.minPlayers;
     }
 
     getMaxClients() {
-        return 2;
+        return CARO_CONFIG.match.maxPlayers;
     }
 
     createInitialState() {
