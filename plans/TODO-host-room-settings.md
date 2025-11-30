@@ -2,7 +2,7 @@
 
 **Status:** 📋 Planning  
 **Priority:** 🟢 High (Quality of Life Feature)  
-**Estimated Effort:** ~6-8 hours  
+**Estimated Effort:** ~4-6 hours  
 **Prerequisite:** ✅ Config refactor hoàn thành - `SHOOTER_CUSTOMIZABLE_SETTINGS` và `CARO_CUSTOMIZABLE_SETTINGS` đã được implement
 
 ---
@@ -14,13 +14,13 @@ Cho phép **chủ phòng (host)** có thể tùy chỉnh các thông số game *
 ### Scope
 
 🎮 **Feature này áp dụng cho TẤT CẢ MỌI GAME**, không chỉ Shooter:
-- ✅ **Shooter**: Score limit, time, damage, fire rate, speeds, etc.
-- ✅ **Caro**: Board size, win condition, time per turn, etc.
+- ✅ **Shooter**: Score limit (7 settings), time, damage, fire rate, speeds, etc.
+- ✅ **Caro**: Board size (3 settings), win condition, time per turn, etc.
 - ✅ **Future games**: Mỗi game sẽ có config riêng
 
 ### Use Cases
 
-1. **Host muốn chơi match nhanh**: Giảm scoreLimit từ 15 xuống 5, giảm time từ 5 phút xuống 3 phút
+1. **Host muốn chơi match nhanh**: Giảm scoreLimit từ 5 xuống 5, giảm time từ 5 phút xuống 2 phút
 2. **Host muốn match dài hơn**: Tăng scoreLimit lên 30, tăng time lên 10 phút
 3. **Host muốn test balance**: Thử nghiệm với damage/fire rate khác nhau
 4. **Host muốn chơi custom rules**: Tăng respawn delay để game khó hơn
@@ -31,78 +31,78 @@ Cho phép **chủ phòng (host)** có thể tùy chỉnh các thông số game *
 
 ### Vị trí hiển thị
 
-**Settings Button** sẽ xuất hiện ở **PlayerCard sidebar**, ngay dưới danh sách players:
+**Settings Panel** sẽ xuất hiện ở **RIGHT COLUMN** của GamePage, thay thế placeholder hiện tại:
 
 ```
-┌─────────────────────────────┐
-│ 👥 Players (2/8)            │
-│ ┌─────────────────────────┐ │
-│ │ 🎮 Player 1 (You) - HOST│ │
-│ │ ⚔️ K/D: 5/3             │ │
-│ │ ✅ Ready                 │ │
-│ └─────────────────────────┘ │
-│ ┌─────────────────────────┐ │
-│ │ 🎮 Player 2              │ │
-│ │ ⚔️ K/D: 3/5             │ │
-│ │ ❌ Not Ready             │ │
-│ └─────────────────────────┘ │
-│                             │
-│ [⚙️ Game Settings]  ← NEW  │  (Chỉ hiển thị cho host)
-└─────────────────────────────┘
+┌─────────────── GAME PAGE ───────────────┐
+│ LEFT COL        CENTER           RIGHT   │
+│ ┌─────────┐   ┌────────┐   ┌──────────┐ │
+│ │Room Info│   │ Canvas │   │  Queue   │ │
+│ │Players  │   │ Phaser │   │ Ready    │ │
+│ │         │   │  Game  │   │ Progress │ │
+│ │         │   │        │   ├──────────┤ │
+│ │         │   │        │   │⚙️ GAME   │ │
+│ │         │   │        │   │ SETTINGS │ │ ← INLINE PANEL
+│ │         │   │        │   │          │ │   (Host only)
+│ │         │   │        │   │ [Slider] │ │
+│ │         │   │        │   │ [Slider] │ │
+│ │         │   │        │   │ [Apply]  │ │
+│ └─────────┘   └────────┘   └──────────┘ │
+└──────────────────────────────────────────┘
 ```
 
-### Settings Modal/Panel
+**Current placeholder** (lines 417-425 trong GamePage.jsx):
+```jsx
+<div className="glass-effect rounded-xl p-4 shadow-lg min-h-[120px] border border-dashed border-slate-600/70">
+    <div className="text-xs text-gray-500 uppercase font-bold tracking-wider mb-1">
+        Game Settings
+    </div>
+    <p className="text-sm text-slate-400">
+        Coming soon...
+    </p>
+</div>
+```
 
-Click vào "⚙️ Game Settings" sẽ hiện modal:
+### Settings Panel Design
+
+**Không dùng modal popup**, thay vào đó là **inline collapsible panel** trong RIGHT column:
 
 ```
-┌────────────────────────────────────────┐
-│ ⚙️ GAME SETTINGS                   [✕] │
-├────────────────────────────────────────┤
-│                                        │
-│ 🎯 Victory Condition                   │
-│ ┌──────────────────────────────────┐  │
-│ │ Score Limit:  [15] ⚔️            │  │
-│ │ Slider: ├─────●─────┤            │  │
-│ │         5         30              │  │
-│ └──────────────────────────────────┘  │
-│                                        │
-│ ⏱️ Match Duration                      │
-│ ┌──────────────────────────────────┐  │
-│ │ Time Limit:   [5:00] minutes     │  │
-│ │ Slider: ├─────●─────┤            │  │
-│ │         2m        10m             │  │
-│ └──────────────────────────────────┘  │
-│                                        │
-│ ⚔️ Combat Settings                     │
-│ ┌──────────────────────────────────┐  │
-│ │ Bullet Damage:    [20] HP        │  │
-│ │ Fire Rate:        [300] ms       │  │
-│ │ Respawn Delay:    [3] seconds    │  │
-│ └──────────────────────────────────┘  │
-│                                        │
-│ 🏃 Movement                             │
-│ ┌──────────────────────────────────┐  │
-│ │ Player Speed:     [200] px/s     │  │
-│ │ Bullet Speed:     [400] px/s     │  │
-│ └──────────────────────────────────┘  │
-│                                        │
-│ ┌──────────────────────────────────┐  │
-│ │ [Reset to Default]  [Apply ✓]    │  │
-│ └──────────────────────────────────┘  │
-└────────────────────────────────────────┘
+┌────────────────────────────────────┐
+│ ⚙️ GAME SETTINGS         [▼]      │ ← Header (collapsible)
+├────────────────────────────────────┤
+│                                    │
+│ 🎯 Victory                         │
+│ Score: [15] ⚔️                     │
+│ ├─────●─────┤ 5-50                │
+│                                    │
+│ ⏱️ Duration                        │
+│ Time: [5:00]                       │
+│ ├─────●─────┤ 2m-10m              │
+│                                    │
+│ ⚔️ Combat                          │
+│ Damage: [25] HP                    │
+│ Fire Rate: [800] ms                │
+│ Respawn: [3] sec                   │
+│                                    │
+│ 🏃 Movement                         │
+│ Player: [200] px/s                 │
+│ Bullet: [500] px/s                 │
+│                                    │
+│ [Reset]  [Apply ✓]                │
+└────────────────────────────────────┘
 ```
 
 ### Quyền truy cập
 
-- **Chỉ Host** mới thấy button "⚙️ Game Settings"
-- **Tất cả players** đều thấy settings hiện tại (có thể hiển thị dưới dạng info panel)
+- **Chỉ Host** mới thấy panel này (replace "Coming soon" placeholder)
+- **Non-host players** vẫn thấy "Coming soon" hoặc view-only info
 - Settings **chỉ có thể thay đổi** khi `gameState === 'waiting'` hoặc `gameState === 'finished'`
-- Khi game đang `playing`, button bị disable
+- Khi game đang `playing`, tất cả inputs bị disable (readonly mode)
 
 ---
 
-### 1. Configurable Settings Metadata
+### Configurable Settings Metadata
 
 ✅ **Config đã được refactor** với metadata-based approach!
 
@@ -113,11 +113,12 @@ Click vào "⚙️ Game Settings" sẽ hiện modal:
 ```javascript
 const { SHOOTER_CUSTOMIZABLE_SETTINGS } = require('./shooter-config');
 
-// Tất cả metadata đã có sẵn:
+// ✅ Metadata đã có sẵn:
 SHOOTER_CUSTOMIZABLE_SETTINGS = {
     scoreLimit: {
         path: 'match.scoreLimit',
         min: 5, max: 50, step: 5, default: 5,
+        editable: true,
         label: 'Score Limit',
         description: 'Kills needed to win the match',
         category: 'victory',
@@ -126,23 +127,62 @@ SHOOTER_CUSTOMIZABLE_SETTINGS = {
     matchDuration: {
         path: 'match.matchDuration',
         min: 120, max: 600, step: 60, default: 300,
+        editable: true,
         label: 'Match Duration',
+        description: 'Time limit for the match',
         category: 'match',
+        unit: 'seconds',
+        format: (v) => `${Math.floor(v / 60)}:${(v % 60).toString().padStart(2, '0')}`
+    },
+    moveSpeed: { 
+        path: 'player.moveSpeed',
+        min: 150, max: 300, step: 10, default: 200,
+        editable: true,
+        label: 'Player Speed',
+        category: 'movement',
+        unit: 'px/s'
+    },
+    respawnDelay: { 
+        path: 'player.respawnDelay',
+        min: 1, max: 10, step: 1, default: 3,
+        editable: true,
+        label: 'Respawn Delay',
+        category: 'gameplay',
         unit: 'seconds'
     },
-    moveSpeed: { min: 150, max: 300, step: 10, default: 200 },
-    respawnDelay: { min: 1, max: 10, step: 1, default: 3 },
-    fireRate: { min: 100, max: 1000, step: 50, default: 800 },
-    bulletSpeed: { min: 200, max: 800, step: 50, default: 500 },
-    bulletDamage: { min: 10, max: 50, step: 5, default: 25 }
+    fireRate: { 
+        path: 'weapon.fireRate',
+        min: 100, max: 1000, step: 50, default: 800,
+        editable: true,
+        label: 'Fire Rate',
+        category: 'combat',
+        unit: 'ms'
+    },
+    bulletSpeed: { 
+        path: 'weapon.bulletSpeed',
+        min: 200, max: 800, step: 50, default: 500,
+        editable: true,
+        label: 'Bullet Speed',
+        category: 'combat',
+        unit: 'px/s'
+    },
+    bulletDamage: { 
+        path: 'weapon.bulletDamage',
+        min: 10, max: 50, step: 5, default: 25,
+        editable: true,
+        label: 'Bullet Damage',
+        category: 'combat',
+        unit: 'HP'
+    }
 };
 ```
 
 **Locked Settings** (KHÔNG được customize):
-- ❌ `match.minPlayers` / `match.maxPlayers` - Game logic
-- ❌ `match.patchRate` - Server performance
-- ❌ `arena.width` / `arena.height` - Client đã init canvas
+- ❌ `match.minPlayers` / `match.maxPlayers` - Game logic, định nghĩa lobby behavior
+- ❌ `match.patchRate` - Server performance, network bandwidth
+- ❌ `arena.width` / `arena.height` - Client đã init canvas với size này
 - ❌ `player.maxHealth`, `player.hitboxRadius` - Core mechanics
+- ❌ `weapon.bulletLifetime` - Auto-calculated từ arena size
 
 #### Caro Settings (3 customizable)
 
@@ -151,27 +191,41 @@ SHOOTER_CUSTOMIZABLE_SETTINGS = {
 ```javascript
 const { CARO_CUSTOMIZABLE_SETTINGS } = require('./caro-config');
 
+// ✅ Metadata đã có sẵn:
 CARO_CUSTOMIZABLE_SETTINGS = {
     boardSize: {
         path: 'board.size',
         min: 10, max: 20, step: 1, default: 15,
+        editable: true,
         label: 'Board Size',
-        category: 'board'
+        description: 'Width and height of the game board',
+        category: 'board',
+        unit: 'cells'
     },
     winCondition: {
         path: 'board.winCondition',
         min: 4, max: 6, step: 1, default: 5,
+        editable: true,
         label: 'Win Condition',
-        category: 'rules'
+        description: 'Consecutive marks needed to win',
+        category: 'rules',
+        unit: 'in a row'
     },
     timePerTurn: {
         path: 'turn.timeLimit',
         min: 0, max: 120, step: 5, default: 0,
+        editable: true,
         label: 'Time Per Turn',
-        category: 'timing'
+        description: 'Seconds per turn (0 = unlimited)',
+        category: 'timing',
+        unit: 'seconds'
     }
 };
 ```
+
+**Locked Settings** (KHÔNG được customize):
+- ❌ `match.minPlayers` / `match.maxPlayers` - Game-specific (always 2 for Caro)
+- ❌ `arena.width` / `arena.height` - Client đã init canvas với size này
 
 ```javascript
 // server/rooms/shooter/ShooterRoom.js
@@ -379,276 +433,219 @@ startMatch() {
 
 ### Phase 2: Client-side UI
 
-#### 2.1. Settings Panel Component
+#### 2.1. Settings Panel Component (Inline, No Modal)
 
-**File:** `client/src/components/room/RoomSettings.jsx` (NEW)
+**File:** `client/src/components/room/GameSettingsPanel.jsx` (NEW)
+
+**Design**: Inline panel trong RIGHT column, replace "Coming soon" placeholder
 
 ```jsx
-import React, { useState, useEffect } from 'react';
-import { FiSettings, FiX } from 'react-icons/fi';
+import React, { useState, useEffect, useMemo } from 'react';
 
-export function RoomSettingsButton({ room, isHost }) {
-    const [isOpen, setIsOpen] = useState(false);
+/**
+ * Game Settings Panel - Inline component for RIGHT column
+ * - Replaces placeholder in GamePage.jsx lines 417-425
+ * - Only visible to host
+ * - Collapsible to save space
+ * - Uses Tailwind CSS (no separate .css file)
+ */
+export function GameSettingsPanel({ room, isHost, gameId }) {
     const [settings, setSettings] = useState({});
     const [gameState, setGameState] = useState('waiting');
+    const [isExpanded, setIsExpanded] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+    const [error, setError] = useState(null);
+    
+    // Get game-specific settings metadata
+    // TODO: Fetch from API or config based on gameId
+    const settingsMetadata = useMemo(() => {
+        // For now, hardcoded for shooter
+        // Later: fetch from server or import from shared config
+        if (gameId === 'shooter') {
+            return {
+                scoreLimit: { min: 5, max: 50, step: 5, default: 5, label: 'Score', unit: 'kills' },
+                matchDuration: { min: 120, max: 600, step: 60, default: 300, label: 'Time', unit: 's', 
+                    format: (v) => `${Math.floor(v/60)}:${(v%60).toString().padStart(2,'0')}` },
+                bulletDamage: { min: 10, max: 50, step: 5, default: 25, label: 'Damage', unit: 'HP' },
+                fireRate: { min: 100, max: 1000, step: 50, default: 800, label: 'Fire Rate', unit: 'ms' },
+                respawnDelay: { min: 1, max: 10, step: 1, default: 3, label: 'Respawn', unit: 's' },
+                moveSpeed: { min: 150, max: 300, step: 10, default: 200, label: 'Speed', unit: 'px/s' },
+                bulletSpeed: { min: 200, max: 800, step: 50, default: 500, label: 'Bullet', unit: 'px/s' }
+            };
+        } else if (gameId === 'caro') {
+            return {
+                boardSize: { min: 10, max: 20, step: 1, default: 15, label: 'Board', unit: 'cells' },
+                winCondition: { min: 4, max: 6, step: 1, default: 5, label: 'Win', unit: 'row' },
+                timePerTurn: { min: 0, max: 120, step: 5, default: 0, label: 'Turn', unit: 's' }
+            };
+        }
+        return {};
+    }, [gameId]);
     
     useEffect(() => {
         if (!room) return;
         
+        const listeners = [];
+        
         // Listen to game state
-        room.state.listen('gameState', (value) => {
+        const gameStateListener = room.state.listen('gameState', (value) => {
             setGameState(value);
         });
+        listeners.push(gameStateListener);
         
-        // Listen to settings changes
-        const listeners = [
-            room.state.listen('cfg_scoreLimit', (v) => 
-                setSettings(s => ({ ...s, scoreLimit: v }))),
-            room.state.listen('cfg_matchDuration', (v) => 
-                setSettings(s => ({ ...s, matchDuration: v }))),
-            room.state.listen('cfg_moveSpeed', (v) => 
-                setSettings(s => ({ ...s, moveSpeed: v }))),
-            // ... other settings
-        ];
+        // Listen to all cfg_* fields
+        Object.keys(settingsMetadata).forEach(key => {
+            const listener = room.state.listen(`cfg_${key}`, (value) => {
+                setSettings(prev => ({ ...prev, [key]: value }));
+            });
+            listeners.push(listener);
+        });
+        
+        // Listen for server responses
+        room.onMessage('settings_updated', () => {
+            setIsSaving(false);
+            setError(null);
+        });
+        
+        room.onMessage('settings_error', (data) => {
+            setIsSaving(false);
+            setError(data.error || 'Failed to update settings');
+        });
         
         return () => listeners.forEach(l => l());
-    }, [room]);
+    }, [room, settingsMetadata]);
     
-    // Only show button if host
-    if (!isHost) return null;
+    // Only show if host
+    if (!isHost) {
+        return (
+            <div className="glass-effect rounded-xl p-4 shadow-lg min-h-[120px] border border-dashed border-slate-600/70">
+                <div className="text-xs text-gray-500 uppercase font-bold tracking-wider mb-1">
+                    Game Settings
+                </div>
+                <p className="text-sm text-slate-400">
+                    Only host can modify settings
+                </p>
+            </div>
+        );
+    }
     
-    // Disable if playing
     const canEdit = gameState !== 'playing';
     
-    return (
-        <>
-            <button
-                onClick={() => setIsOpen(true)}
-                disabled={!canEdit}
-                className="settings-button"
-            >
-                <FiSettings /> Game Settings
-            </button>
-            
-            {isOpen && (
-                <RoomSettingsModal
-                    room={room}
-                    settings={settings}
-                    canEdit={canEdit}
-                    onClose={() => setIsOpen(false)}
-                />
-            )}
-        </>
-    );
-}
-
-function RoomSettingsModal({ room, settings, canEdit, onClose }) {
-    const [localSettings, setLocalSettings] = useState(settings);
-    const [isSaving, setIsSaving] = useState(false);
-    const [error, setError] = useState(null);
-    
     const handleChange = (key, value) => {
-        setLocalSettings(prev => ({ ...prev, [key]: value }));
+        setSettings(prev => ({ ...prev, [key]: value }));
     };
     
     const handleReset = () => {
-        // Reset to defaults
-        setLocalSettings({
-            scoreLimit: 15,
-            matchDuration: 300,
-            moveSpeed: 200,
-            respawnDelay: 3,
-            fireRate: 300,
-            bulletSpeed: 400,
-            bulletDamage: 20
+        const defaults = {};
+        Object.entries(settingsMetadata).forEach(([key, meta]) => {
+            defaults[key] = meta.default;
         });
+        setSettings(defaults);
     };
     
-    const handleSave = async () => {
+    const handleApply = () => {
         setIsSaving(true);
         setError(null);
-        
-        try {
-            // Send to server
-            room.send('update_settings', { settings: localSettings });
-            
-            // Wait for confirmation
-            await new Promise((resolve, reject) => {
-                const timeout = setTimeout(() => reject('Timeout'), 5000);
-                
-                room.onMessage('settings_updated', () => {
-                    clearTimeout(timeout);
-                    resolve();
-                });
-                
-                room.onMessage('settings_error', (data) => {
-                    clearTimeout(timeout);
-                    reject(data.error || data.errors);
-                });
-            });
-            
-            // Success - close modal
-            onClose();
-        } catch (err) {
-            setError(err.toString());
-        } finally {
-            setIsSaving(false);
-        }
+        room.send('update_settings', { settings });
     };
     
     return (
-        <div className="modal-overlay">
-            <div className="modal-panel settings-panel">
-                <div className="modal-header">
-                    <h2>⚙️ Game Settings</h2>
-                    <button onClick={onClose}><FiX /></button>
+        <div className="glass-effect rounded-xl shadow-lg border border-slate-700/60 overflow-hidden">
+            {/* Header (collapsible) */}
+            <button
+                onClick={() => setIsExpanded(!isExpanded)}
+                className="w-full p-4 flex items-center justify-between hover:bg-slate-800/30 transition"
+            >
+                <div className="text-xs text-gray-400 uppercase font-bold tracking-wider">
+                    ⚙️ Game Settings
                 </div>
-                
-                <div className="modal-body">
-                    {/* Victory Condition */}
-                    <SettingGroup title="🎯 Victory Condition">
+                <span className="text-slate-400 text-sm">
+                    {isExpanded ? '▲' : '▼'}
+                </span>
+            </button>
+            
+            {/* Collapsible content */}
+            {isExpanded && (
+                <div className="p-4 pt-0 flex flex-col gap-3 max-h-[400px] overflow-y-auto">
+                    {Object.entries(settingsMetadata).map(([key, meta]) => (
                         <SettingSlider
-                            label="Score Limit"
-                            value={localSettings.scoreLimit}
-                            onChange={(v) => handleChange('scoreLimit', v)}
-                            min={5}
-                            max={50}
-                            step={5}
-                            unit="⚔️"
+                            key={key}
+                            label={meta.label}
+                            value={settings[key] || meta.default}
+                            onChange={(v) => handleChange(key, v)}
+                            min={meta.min}
+                            max={meta.max}
+                            step={meta.step}
+                            unit={meta.unit}
+                            format={meta.format}
                             disabled={!canEdit}
                         />
-                    </SettingGroup>
-                    
-                    {/* Match Duration */}
-                    <SettingGroup title="⏱️ Match Duration">
-                        <SettingSlider
-                            label="Time Limit"
-                            value={localSettings.matchDuration}
-                            onChange={(v) => handleChange('matchDuration', v)}
-                            min={120}
-                            max={600}
-                            step={60}
-                            unit="seconds"
-                            format={(v) => `${Math.floor(v/60)}:${(v%60).toString().padStart(2,'0')}`}
-                            disabled={!canEdit}
-                        />
-                    </SettingGroup>
-                    
-                    {/* Combat Settings */}
-                    <SettingGroup title="⚔️ Combat">
-                        <SettingSlider
-                            label="Bullet Damage"
-                            value={localSettings.bulletDamage}
-                            onChange={(v) => handleChange('bulletDamage', v)}
-                            min={10}
-                            max={50}
-                            step={5}
-                            unit="HP"
-                            disabled={!canEdit}
-                        />
-                        <SettingSlider
-                            label="Fire Rate"
-                            value={localSettings.fireRate}
-                            onChange={(v) => handleChange('fireRate', v)}
-                            min={100}
-                            max={1000}
-                            step={50}
-                            unit="ms"
-                            disabled={!canEdit}
-                        />
-                        <SettingSlider
-                            label="Respawn Delay"
-                            value={localSettings.respawnDelay}
-                            onChange={(v) => handleChange('respawnDelay', v)}
-                            min={1}
-                            max={10}
-                            step={1}
-                            unit="seconds"
-                            disabled={!canEdit}
-                        />
-                    </SettingGroup>
-                    
-                    {/* Movement */}
-                    <SettingGroup title="🏃 Movement">
-                        <SettingSlider
-                            label="Player Speed"
-                            value={localSettings.moveSpeed}
-                            onChange={(v) => handleChange('moveSpeed', v)}
-                            min={150}
-                            max={300}
-                            step={10}
-                            unit="px/s"
-                            disabled={!canEdit}
-                        />
-                        <SettingSlider
-                            label="Bullet Speed"
-                            value={localSettings.bulletSpeed}
-                            onChange={(v) => handleChange('bulletSpeed', v)}
-                            min={200}
-                            max={800}
-                            step={50}
-                            unit="px/s"
-                            disabled={!canEdit}
-                        />
-                    </SettingGroup>
+                    ))}
                     
                     {error && (
-                        <div className="error-message">{error}</div>
+                        <div className="text-xs text-red-400 bg-red-500/10 border border-red-500/30 rounded px-2 py-1">
+                            {error}
+                        </div>
                     )}
+                    
+                    {/* Actions */}
+                    <div className="flex gap-2 pt-2 border-t border-slate-700/50">
+                        <button
+                            onClick={handleReset}
+                            disabled={!canEdit || isSaving}
+                            className="flex-1 px-3 py-2 text-xs font-semibold rounded-lg
+                                     bg-slate-700/60 text-slate-300 border border-slate-600/50
+                                     hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed
+                                     transition"
+                        >
+                            Reset
+                        </button>
+                        <button
+                            onClick={handleApply}
+                            disabled={!canEdit || isSaving}
+                            className="flex-1 px-3 py-2 text-xs font-semibold rounded-lg
+                                     bg-green-600 text-white hover:bg-green-500
+                                     disabled:opacity-50 disabled:cursor-not-allowed
+                                     transition"
+                        >
+                            {isSaving ? 'Saving...' : 'Apply ✓'}
+                        </button>
+                    </div>
                 </div>
-                
-                <div className="modal-footer">
-                    <button 
-                        onClick={handleReset}
-                        disabled={!canEdit || isSaving}
-                        className="btn-secondary"
-                    >
-                        Reset to Default
-                    </button>
-                    <button 
-                        onClick={handleSave}
-                        disabled={!canEdit || isSaving}
-                        className="btn-primary"
-                    >
-                        {isSaving ? 'Saving...' : 'Apply ✓'}
-                    </button>
-                </div>
-            </div>
+            )}
         </div>
     );
 }
 
-// Helper components
-function SettingGroup({ title, children }) {
+// Helper component: Compact slider for settings
+function SettingSlider({ label, value, onChange, min, max, step, unit, format, disabled }) {
+    const displayValue = format ? format(value) : value;
+    
     return (
-        <div className="setting-group">
-            <h3>{title}</h3>
-            {children}
-        </div>
-    );
-}
-
-function SettingSlider({ 
-    label, value, onChange, min, max, step, unit, 
-    format = (v) => v, disabled 
-}) {
-    return (
-        <div className="setting-slider">
-            <label>{label}</label>
-            <div className="slider-container">
-                <input
-                    type="range"
-                    min={min}
-                    max={max}
-                    step={step}
-                    value={value}
-                    onChange={(e) => onChange(Number(e.target.value))}
-                    disabled={disabled}
-                />
-                <span className="value-display">
-                    {format(value)} {unit}
+        <div className="flex flex-col gap-1">
+            <div className="flex items-center justify-between text-xs">
+                <span className="text-slate-300 font-medium">{label}</span>
+                <span className="text-green-400 font-mono">
+                    {displayValue} <span className="text-slate-500">{unit}</span>
                 </span>
             </div>
+            <input
+                type="range"
+                min={min}
+                max={max}
+                step={step}
+                value={value}
+                onChange={(e) => onChange(Number(e.target.value))}
+                disabled={disabled}
+                className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer
+                         [&::-webkit-slider-thumb]:appearance-none
+                         [&::-webkit-slider-thumb]:w-3
+                         [&::-webkit-slider-thumb]:h-3
+                         [&::-webkit-slider-thumb]:rounded-full
+                         [&::-webkit-slider-thumb]:bg-green-500
+                         [&::-webkit-slider-thumb]:cursor-pointer
+                         disabled:opacity-50 disabled:cursor-not-allowed"
+            />
         </div>
     );
 }
@@ -658,43 +655,27 @@ function SettingSlider({
 
 **File:** `client/src/pages/GamePage.jsx`
 
+**Replace lines 417-425** (placeholder) với:
+
 ```jsx
-import { RoomSettingsButton } from '../components/room/RoomSettings';
+import { GameSettingsPanel } from '../components/room/GameSettingsPanel';
 
 // ...
 
-// In sidebar, below player list:
-<div className="room-controls">
-    <RoomSettingsButton 
-        room={room} 
-        isHost={room?.sessionId === room?.state.hostId}
+{/* RIGHT COLUMN: Queue + Settings */}
+<div className="flex flex-col gap-4 animate-slide-up order-3" style={{ animationDelay: '150ms' }}>
+    {/* Queue Card */}
+    <div className="glass-effect rounded-xl p-4 shadow-lg">
+        {/* ... existing queue content ... */}
+    </div>
+
+    {/* Game Settings Panel - replaces "Coming soon" */}
+    <GameSettingsPanel 
+        room={currentRoom}
+        isHost={currentRoom?.sessionId === roomOwner}
+        gameId={activeGameId}
     />
 </div>
-```
-
-#### 2.3. Settings Info Display (for all players)
-
-**Component hiển thị settings hiện tại** cho tất cả players xem:
-
-```jsx
-function CurrentSettingsInfo({ room }) {
-    const [settings, setSettings] = useState({});
-    
-    // Listen to settings
-    useEffect(() => { /* ... */ }, [room]);
-    
-    return (
-        <div className="current-settings-info">
-            <h4>📊 Current Settings</h4>
-            <ul>
-                <li>🎯 Score Limit: {settings.scoreLimit}</li>
-                <li>⏱️ Duration: {formatTime(settings.matchDuration)}</li>
-                <li>⚔️ Damage: {settings.bulletDamage} HP</li>
-                <li>🔫 Fire Rate: {settings.fireRate} ms</li>
-            </ul>
-        </div>
-    );
-}
 ```
 
 ### Phase 3: Testing & Polish
@@ -728,12 +709,14 @@ function CurrentSettingsInfo({ room }) {
 
 #### 3.3. UI/UX Polish
 
-- [ ] Smooth animations khi mở/đóng modal
-- [ ] Tooltips giải thích từng setting
-- [ ] Preview changes (ví dụ: "5 bullets to kill" khi damage = 20)
-- [ ] Confirmation khi reset to default
-- [ ] Toast notification khi settings saved
-- [ ] Show who changed settings ("Settings updated by PlayerX")
+- [ ] Smooth transitions khi expand/collapse panel
+- [ ] Tooltips giải thích từng setting (optional)
+- [ ] Preview changes (ví dụ: "4 shots to kill" khi damage = 25, maxHealth = 100)
+- [ ] Confirmation khi reset to default (optional)
+- [ ] Toast/banner notification khi settings saved (optional)
+- [ ] Show who changed settings to all players ("Settings updated by PlayerX")
+- [ ] Compact design cho RIGHT column (không chiếm quá nhiều space)
+- [ ] Readable sliders với clear min/max labels
 
 ---
 
@@ -743,44 +726,59 @@ function CurrentSettingsInfo({ room }) {
 server/
   rooms/
     shooter/
-      ShooterRoom.js          (UPDATE: add settings handlers)
-      ShooterState.js         (UPDATE: add cfg_* fields)
-      settings-validator.js   (NEW: validation logic)
-      shooter-config.js       (EXISTING: default values)
+      ShooterRoom.js            (UPDATE: add settings handlers)
+      ShooterState.js           (UPDATE: add cfg_* fields)
+      settings-validator.js     (NEW: validation logic)
+      shooter-config.js         (EXISTING: metadata already defined)
+    
+    caro/
+      CaroRoom.js               (UPDATE: add settings handlers)
+      CaroState.js              (UPDATE: add cfg_* fields)
+      settings-validator.js     (NEW: validation logic)
+      caro-config.js            (EXISTING: metadata already defined)
 
 client/
   src/
     components/
       room/
-        RoomSettings.jsx      (NEW: settings UI)
-        RoomSettings.css      (NEW: styling)
+        GameSettingsPanel.jsx   (NEW: inline settings panel, NO .css file)
+    
     pages/
-      GamePage.jsx            (UPDATE: add RoomSettingsButton)
+      GamePage.jsx              (UPDATE: replace placeholder with GameSettingsPanel)
 ```
+
+**Notes:**
+- ✅ No `.css` files - sử dụng Tailwind CSS
+- ✅ Config metadata đã tồn tại trong `*-config.js` files
+- ✅ Settings panel là inline component, không phải modal
+- ✅ Pattern tương tự cho mọi game (shooter, caro, future)
 
 ---
 
 ## Milestones
 
-### Milestone 1: Server Foundation (2-3h)
-- [ ] Add cfg_* fields to ShooterState
-- [ ] Create settings-validator.js
-- [ ] Add update_settings message handler
+### Milestone 1: Server Foundation (2h)
+- [ ] Add `cfg_*` fields to `ShooterState.js` và `CaroState.js`
+- [ ] Create `settings-validator.js` cho mỗi game (reuse metadata từ config)
+- [ ] Add `update_settings` message handler trong Room classes
 - [ ] Add validation & broadcast logic
-- [ ] Test với Postman/curl
+- [ ] Test với Postman/manual test tool
 
-### Milestone 2: Basic UI (2-3h)
-- [ ] Create RoomSettingsButton component
-- [ ] Create basic modal with sliders
-- [ ] Integrate vào GamePage
+### Milestone 2: Client UI (2-3h)
+- [ ] Create `GameSettingsPanel.jsx` - inline component
+- [ ] Implement collapsible panel với sliders
+- [ ] Style với Tailwind CSS (compact design cho RIGHT column)
+- [ ] Integrate vào `GamePage.jsx` (replace placeholder)
+- [ ] Fetch metadata from server or config
 - [ ] Test end-to-end với 2 clients
 
-### Milestone 3: Polish & Edge Cases (2h)
-- [ ] Add styling, animations
-- [ ] Add error handling
-- [ ] Add tooltips & help text
-- [ ] Test all edge cases
-- [ ] Add CurrentSettingsInfo display
+### Milestone 3: Polish & Testing (1-2h)
+- [ ] Add error handling (server validation errors)
+- [ ] Add loading states (isSaving)
+- [ ] Test edge cases (disconnect, game state changes, non-host access)
+- [ ] Add responsive behavior (collapse on mobile?)
+- [ ] Toast notification khi settings updated?
+- [ ] Optional: Add view-only info panel for non-host players
 
 ---
 
@@ -790,33 +788,56 @@ client/
 
 Settings system được thiết kế để work với **bất kỳ game nào**:
 
+**Server-side**: Mỗi game định nghĩa metadata trong `*-config.js`:
+
 ```javascript
-// Each game defines its own configurable settings
-const GAME_SETTINGS_SCHEMA = {
-    'shooter': {
-        scoreLimit: { type: 'number', min: 5, max: 50, step: 5 },
-        matchDuration: { type: 'number', min: 120, max: 600, step: 60 },
-        bulletDamage: { type: 'number', min: 10, max: 50, step: 5 },
-        // ...
+// server/rooms/shooter/shooter-config.js
+const SHOOTER_CUSTOMIZABLE_SETTINGS = {
+    scoreLimit: { 
+        path: 'match.scoreLimit',
+        min: 5, max: 50, step: 5, default: 5,
+        editable: true,
+        label: 'Score Limit',
+        unit: 'kills'
     },
-    'caro': {
-        boardSize: { type: 'number', min: 10, max: 20, step: 1 },
-        winCondition: { type: 'number', min: 4, max: 6, step: 1 },
-        timePerTurn: { type: 'number', min: 15, max: 120, step: 5 },
-        // ...
+    // ... 7 settings total
+};
+
+// server/rooms/caro/caro-config.js
+const CARO_CUSTOMIZABLE_SETTINGS = {
+    boardSize: { 
+        path: 'board.size',
+        min: 10, max: 20, step: 1, default: 15,
+        editable: true,
+        label: 'Board Size',
+        unit: 'cells'
     },
-    // Future games...
+    // ... 3 settings total
 };
 ```
 
-UI component sẽ **dynamically render** settings dựa trên game type:
+**Client-side**: UI component **dynamically renders** settings dựa trên gameId:
 
 ```jsx
-<RoomSettingsModal 
-    gameType={room.metadata.gameType}  // 'shooter' or 'caro'
-    settings={getGameSettings(room.metadata.gameType)}
+// GamePage.jsx
+<GameSettingsPanel 
+    room={currentRoom}
+    isHost={isHost}
+    gameId={activeGameId}  // 'shooter', 'caro', etc.
 />
+
+// GameSettingsPanel.jsx sẽ:
+// 1. Fetch metadata based on gameId (from server API hoặc hardcoded)
+// 2. Dynamically render sliders/inputs
+// 3. Listen to cfg_* state fields
+// 4. Send update_settings message
 ```
+
+**Benefits:**
+- ✅ Thêm game mới chỉ cần define metadata trong config
+- ✅ UI tự động render dựa trên metadata
+- ✅ Validation reuse metadata (DRY principle)
+- ✅ Single source of truth
 
 ---
 
@@ -849,14 +870,40 @@ UI component sẽ **dynamically render** settings dựa trên game type:
 
 ## Notes
 
-- Settings chỉ tồn tại trong room lifetime, không persist vào DB
+### Design Decisions
+
+1. **Inline Panel vs Modal**: Chọn inline panel vì:
+   - GamePage đã có placeholder sẵn ở RIGHT column
+   - Tiết kiệm clicks (không cần mở modal)
+   - Settings vẫn visible khi đang chơi (readonly mode)
+   - Fit với layout 3-column hiện tại
+
+2. **Tailwind CSS only**: Không tạo `.css` files vì:
+   - Dự án đã dùng Tailwind CSS 4
+   - Consistency với các components khác
+   - Easier maintenance
+
+3. **Collapsible Panel**: Save space trong RIGHT column
+   - Default: collapsed (chỉ hiện header)
+   - Click để expand → hiện sliders
+   - Fit nhiều settings mà không làm UI quá dài
+
+4. **Settings Metadata**: Single source of truth
+   - Server: `*-config.js` files (đã có sẵn)
+   - Client: Fetch hoặc hardcode (tùy implementation)
+   - Validation dùng chung metadata
+
+### Future Considerations
+
+- Settings hiện tại chỉ tồn tại trong room lifetime, không persist vào DB
 - Nếu cần persist: thêm `roomSettings` vào database `rooms` table
 - Consider rate limiting để tránh spam
 - Settings changes được log cho debugging
+- Có thể thêm API endpoint `/api/games/:gameId/settings` để fetch metadata
 
 ---
 
-**Last Updated:** 2025-11-28  
-**Created By:** AI Assistant  
-**Status:** Ready for Implementation 🚀
+**Last Updated:** 2025-11-30  
+**Status:** Ready for Implementation 🚀  
+**Updated:** Aligned with current codebase (Tailwind CSS, inline panel design)
 
