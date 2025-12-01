@@ -1,4 +1,3 @@
-// Phiên bản backup của ShooterScene.js đang hoạt động để dự phòng khi cần phục hồi
 import Phaser from 'phaser';
 import { FreeForAllGameScene } from '../base/FreeForAllGameScene';
 import { EntityInterpolator } from '../base/EntityInterpolator';
@@ -37,6 +36,10 @@ export class ShooterScene extends FreeForAllGameScene {
     init(data) {
         super.init(data);
 
+        // Canvas dimensions - get from Phaser scale manager
+        this.canvasWidth = this.scale.width;
+        this.canvasHeight = this.scale.height;
+
         // Clear sprite maps
         this.playerSprites.clear();
         this.bulletSprites.clear();
@@ -63,6 +66,24 @@ export class ShooterScene extends FreeForAllGameScene {
         this.setupInput();
         this.createHUD();
         this.createKillFeed();
+
+        // Listen to resize events for responsive scaling
+        this.scale.on('resize', this.handleResize, this);
+    }
+
+    handleResize(gameSize) {
+        // Only recreate if size actually changed
+        if (this.canvasWidth === gameSize.width && this.canvasHeight === gameSize.height) {
+            return;
+        }
+
+        console.log('[ShooterScene] Handling resize:', gameSize.width, 'x', gameSize.height);
+
+        this.canvasWidth = gameSize.width;
+        this.canvasHeight = gameSize.height;
+
+        // Recreate arena and HUD with new dimensions
+        this.scene.restart();
     }
 
     /**
@@ -97,24 +118,26 @@ export class ShooterScene extends FreeForAllGameScene {
      * Create arena background and borders
      */
     createArena() {
-        const centerX = this.cameras.main.width / 2;
-        const centerY = this.cameras.main.height / 2;
+        const width = this.canvasWidth;
+        const height = this.canvasHeight;
+        const centerX = width / 2;
+        const centerY = height / 2;
 
-        // Background
-        this.add.rectangle(centerX, centerY, 800, 600, 0x1a1a2e);
+        // Background - full canvas
+        this.add.rectangle(centerX, centerY, width, height, 0x1a1a2e);
 
-        // Arena border
-        const border = this.add.rectangle(centerX, centerY, 800, 600);
+        // Arena border - full canvas
+        const border = this.add.rectangle(centerX, centerY, width, height);
         border.setStrokeStyle(3, 0x00ff88);
 
-        // Grid lines (optional, for visual reference)
+        // Grid lines - dynamic based on canvas size
         const gridSize = 50;
-        for (let x = 0; x <= 800; x += gridSize) {
-            this.add.line(0, 0, x, 0, x, 600, 0x2a2a3e, 0.3)
+        for (let x = 0; x <= width; x += gridSize) {
+            this.add.line(0, 0, x, 0, x, height, 0x2a2a3e, 0.3)
                 .setOrigin(0);
         }
-        for (let y = 0; y <= 600; y += gridSize) {
-            this.add.line(0, 0, 0, y, 800, y, 0x2a2a3e, 0.3)
+        for (let y = 0; y <= height; y += gridSize) {
+            this.add.line(0, 0, 0, y, width, y, 0x2a2a3e, 0.3)
                 .setOrigin(0);
         }
     }
@@ -152,19 +175,22 @@ export class ShooterScene extends FreeForAllGameScene {
      * Create HUD elements with enhanced styling
      */
     createHUD() {
-        const centerX = this.cameras.main.width / 2;
-        const width = this.cameras.main.width;
-        const height = this.cameras.main.height;
+        const width = this.canvasWidth;
+        const height = this.canvasHeight;
+        const centerX = width / 2;
+
+        // HUD spacing - use percentage of height for better scaling
+        const hudMarginTop = Math.max(height * 0.05, 30); // 5% from top, min 30px
+        const lineGap = 24;
 
         // ====== TOP CENTER: TIMER + SCORE LIMIT ======
 
         // Timer text with icon (no background panel - cleaner look)
-        // Centered both horizontally and vertically for alignment
-        this.timerIcon = this.add.text(centerX - 50, 32, '⏱️', {
+        this.timerIcon = this.add.text(centerX - 45, hudMarginTop, '⏱️', {
             fontSize: '20px'
         }).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(101);
 
-        this.timerText = this.add.text(centerX, 32, '--:--', {
+        this.timerText = this.add.text(centerX + 5, hudMarginTop, '--:--', {
             fontSize: '22px',
             color: '#00ff88',
             fontStyle: 'bold',
@@ -174,8 +200,8 @@ export class ShooterScene extends FreeForAllGameScene {
         }).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(101);
 
         // Score limit below timer (First to X)
-        this.scoreLimitText = this.add.text(centerX, 55, '🎯 First to: 0', {
-            fontSize: '14px',
+        this.scoreLimitText = this.add.text(centerX, hudMarginTop + lineGap, '🎯 First to: 0', {
+            fontSize: '15px',
             color: '#ffaa00',
             fontStyle: 'bold',
             stroke: '#000000',
@@ -184,61 +210,68 @@ export class ShooterScene extends FreeForAllGameScene {
 
         // ====== TOP LEFT: PLAYER HEALTH + K/D ======
 
+        const panelMargin = 20;
+        const panelWidth = 260;
+        const panelHeight = 95;
+
         // Health panel background
-        const healthPanelBg = this.add.rectangle(20, 20, 250, 90, 0x1a1a2e, 0.95)
+        const healthPanelBg = this.add.rectangle(panelMargin, panelMargin, panelWidth, panelHeight, 0x1a1a2e, 0.95)
             .setOrigin(0, 0).setScrollFactor(0).setDepth(100);
 
-        const healthPanelBorder = this.add.rectangle(20, 20, 250, 90)
+        const healthPanelBorder = this.add.rectangle(panelMargin, panelMargin, panelWidth, panelHeight)
             .setOrigin(0, 0).setScrollFactor(0).setDepth(100)
             .setStrokeStyle(2, 0x00ff88, 0.5);
 
         // Health label
-        this.add.text(30, 30, '❤️ HEALTH', {
-            fontSize: '12px',
+        this.add.text(panelMargin + 10, panelMargin + 10, '❤️ HEALTH', {
+            fontSize: '13px',
             color: '#888888',
             fontStyle: 'bold'
         }).setOrigin(0, 0).setScrollFactor(0).setDepth(101);
 
         // Health bar background
-        this.myHealthBarBg = this.add.rectangle(30, 55, 200, 16, 0x333333)
+        this.myHealthBarBg = this.add.rectangle(panelMargin + 10, panelMargin + 35, 210, 18, 0x333333)
             .setOrigin(0, 0).setScrollFactor(0).setDepth(101);
 
         // Health bar border
-        this.add.rectangle(30, 55, 200, 16)
+        this.add.rectangle(panelMargin + 10, panelMargin + 35, 210, 18)
             .setOrigin(0, 0).setScrollFactor(0).setDepth(101)
             .setStrokeStyle(2, 0x666666);
 
         // Health bar fill
-        this.myHealthBar = this.add.rectangle(32, 57, 196, 12, 0x00ff00)
+        this.myHealthBar = this.add.rectangle(panelMargin + 12, panelMargin + 37, 206, 14, 0x00ff00)
             .setOrigin(0, 0).setScrollFactor(0).setDepth(102);
 
         // Health text (100/100)
-        this.myHealthText = this.add.text(130, 63, '100/100', {
-            fontSize: '12px',
+        this.myHealthText = this.add.text(panelMargin + 10 + 105, panelMargin + 35 + 9, '100/100', {
+            fontSize: '13px',
             color: '#ffffff',
             fontStyle: 'bold'
         }).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(103);
 
         // K/D stats
-        this.kdText = this.add.text(30, 82, '⚔️ 0  💀 0', {
-            fontSize: '14px',
+        this.kdText = this.add.text(panelMargin + 10, panelMargin + 65, '⚔️ 0  💀 0', {
+            fontSize: '15px',
             color: '#ffffff',
             fontStyle: 'bold'
         }).setOrigin(0, 0).setScrollFactor(0).setDepth(101);
 
         // ====== TOP RIGHT: LEADERBOARD ======
 
+        const leaderboardWidth = 210;
+        const leaderboardMargin = 20;
+
         // Leaderboard background (same height as health panel for balance)
-        const leaderboardBg = this.add.rectangle(width - 20, 20, 200, 90, 0x1a1a2e, 0.95)
+        const leaderboardBg = this.add.rectangle(width - leaderboardMargin, panelMargin, leaderboardWidth, panelHeight, 0x1a1a2e, 0.95)
             .setOrigin(1, 0).setScrollFactor(0).setDepth(100);
 
-        const leaderboardBorder = this.add.rectangle(width - 20, 20, 200, 90)
+        const leaderboardBorder = this.add.rectangle(width - leaderboardMargin, panelMargin, leaderboardWidth, panelHeight)
             .setOrigin(1, 0).setScrollFactor(0).setDepth(100)
             .setStrokeStyle(2, 0x00ff88, 0.5);
 
         // Leaderboard title
-        this.add.text(width - 110, 30, '🏆 TOP 3', {
-            fontSize: '11px',
+        this.add.text(width - leaderboardMargin - leaderboardWidth / 2, panelMargin + 10, '🏆 TOP 3', {
+            fontSize: '13px',
             color: '#00ff88',
             fontStyle: 'bold'
         }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(101);
@@ -246,10 +279,8 @@ export class ShooterScene extends FreeForAllGameScene {
         // Leaderboard entries - only top 3 for compact display
         this.leaderboardEntries = [];
         for (let i = 0; i < 3; i++) {
-            // Panel left edge: (width-20) - 200 = width-220
-            // Add 10px padding from left edge
-            const entry = this.add.text(width - 210, 50 + i * 18, '', {
-                fontSize: '11px',
+            const entry = this.add.text(width - leaderboardMargin - leaderboardWidth + 12, panelMargin + 36 + i * 19, '', {
+                fontSize: '12px',
                 color: '#ffffff',
                 fontFamily: 'monospace'
             }).setOrigin(0, 0).setScrollFactor(0).setDepth(101);
@@ -264,14 +295,16 @@ export class ShooterScene extends FreeForAllGameScene {
 
         // ====== BOTTOM CENTER: RESPAWN MESSAGE (hidden by default) ======
 
-        this.respawnMessageBg = this.add.rectangle(centerX, height - 100, 400, 50, 0x8b0000, 0.95)
+        const respawnY = height - Math.max(height * 0.15, 100); // 15% from bottom, min 100px
+
+        this.respawnMessageBg = this.add.rectangle(centerX, respawnY, 420, 55, 0x8b0000, 0.95)
             .setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(200).setVisible(false);
 
-        this.respawnMessageBorder = this.add.rectangle(centerX, height - 100, 400, 50)
+        this.respawnMessageBorder = this.add.rectangle(centerX, respawnY, 420, 55)
             .setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(200)
             .setStrokeStyle(3, 0xff0000).setVisible(false);
 
-        this.respawnMessage = this.add.text(centerX, height - 100, '💀 ELIMINATED - Respawning...', {
+        this.respawnMessage = this.add.text(centerX, respawnY, '💀 ELIMINATED - Respawning...', {
             fontSize: '18px',
             color: '#ffcccc',
             fontStyle: 'bold'
@@ -293,11 +326,14 @@ export class ShooterScene extends FreeForAllGameScene {
         const { victimName, killerName, victim: victimId, killer: killerId } = data;
         const isSuicide = victimId === killerId;
 
-        const width = this.cameras.main.width;
-        const baseY = 120; // Below leaderboard (leaderboard ends at 110)
+        const width = this.canvasWidth;
+        // Position below leaderboard panel
+        const panelMargin = 20;
+        const panelHeight = 95;
+        const baseY = panelMargin + panelHeight + 15;
 
         // Calculate Y position (stack from top)
-        const yPos = baseY + this.killFeedEntries.length * 30;
+        const yPos = baseY + this.killFeedEntries.length * 32;
 
         // Create text (no background panel - cleaner look)
         let message;
@@ -308,7 +344,7 @@ export class ShooterScene extends FreeForAllGameScene {
         }
 
         const text = this.add.text(width - 30, yPos, message, {
-            fontSize: '13px',
+            fontSize: '14px',
             color: '#ffcccc',
             fontStyle: 'bold',
             stroke: '#8b0000',
@@ -379,12 +415,14 @@ export class ShooterScene extends FreeForAllGameScene {
      * Reposition kill feed entries after removal
      */
     repositionKillFeed() {
-        const baseY = 120;
+        const panelMargin = 20;
+        const panelHeight = 95;
+        const baseY = panelMargin + panelHeight + 15;
 
         this.killFeedEntries.forEach((entry, index) => {
             if (!entry.text || !entry.text.scene) return;
 
-            const targetY = baseY + index * 30;
+            const targetY = baseY + index * 32;
 
             this.tweens.add({
                 targets: entry.text,
@@ -721,23 +759,28 @@ export class ShooterScene extends FreeForAllGameScene {
      */
     showEndGameScreen(data) {
         const isWinner = data.winner === this.room.sessionId;
-        const centerX = this.cameras.main.width / 2;
-        const centerY = this.cameras.main.height / 2;
+        const width = this.canvasWidth;
+        const height = this.canvasHeight;
+        const centerX = width / 2;
+        const centerY = height / 2;
 
         // Clear existing if any
         if (this.endGameUI) {
             this.hideEndGameScreen();
         }
 
-        // Semi-transparent dark overlay
-        const overlay = this.add.rectangle(centerX, centerY, 800, 600, 0x000000, 0.90);
+        // Semi-transparent dark overlay - full canvas
+        const overlay = this.add.rectangle(centerX, centerY, width, height, 0x000000, 0.90);
         overlay.setDepth(1000).setScrollFactor(0);
 
-        // Main panel background
-        const panelBg = this.add.rectangle(centerX, centerY, 600, 500, 0x1a1a2e, 0.98);
+        // Main panel background - responsive sizing
+        const panelWidth = Math.min(width * 0.75, 650);
+        const panelHeight = Math.min(height * 0.85, 550);
+        
+        const panelBg = this.add.rectangle(centerX, centerY, panelWidth, panelHeight, 0x1a1a2e, 0.98);
         panelBg.setDepth(1001).setScrollFactor(0);
 
-        const panelBorder = this.add.rectangle(centerX, centerY, 600, 500);
+        const panelBorder = this.add.rectangle(centerX, centerY, panelWidth, panelHeight);
         panelBorder.setDepth(1001).setScrollFactor(0);
         panelBorder.setStrokeStyle(4, isWinner ? 0xFFD700 : 0x666666);
 
@@ -745,8 +788,9 @@ export class ShooterScene extends FreeForAllGameScene {
 
         const titleText = isWinner ? '🏆 VICTORY! 🏆' : '💀 DEFEAT 💀';
         const titleColor = isWinner ? '#FFD700' : '#FF4444';
+        const titleY = centerY - panelHeight / 2 + 50;
 
-        const title = this.add.text(centerX, centerY - 200, titleText, {
+        const title = this.add.text(centerX, titleY, titleText, {
             fontSize: '48px',
             fontStyle: 'bold',
             color: titleColor,
@@ -766,14 +810,15 @@ export class ShooterScene extends FreeForAllGameScene {
 
         // ====== WINNER INFO ======
 
-        const winnerText = this.add.text(centerX, centerY - 140,
+        const winnerInfoY = titleY + 60;
+        const winnerText = this.add.text(centerX, winnerInfoY,
             `Winner: ${data.winnerName}`, {
             fontSize: '24px',
             color: '#FFFFFF',
             fontStyle: 'bold'
         }).setOrigin(0.5).setDepth(1002).setScrollFactor(0);
 
-        const winnerScoreText = this.add.text(centerX, centerY - 110,
+        const winnerScoreText = this.add.text(centerX, winnerInfoY + 30,
             `Final Score: ${data.winnerScore} kills`, {
             fontSize: '18px',
             color: '#00ff88'
@@ -781,7 +826,8 @@ export class ShooterScene extends FreeForAllGameScene {
 
         // ====== SCOREBOARD HEADER ======
 
-        const scoreboardTitle = this.add.text(centerX, centerY - 60,
+        const scoreboardTitleY = winnerInfoY + 80;
+        const scoreboardTitle = this.add.text(centerX, scoreboardTitleY,
             '📊 FINAL STANDINGS', {
             fontSize: '20px',
             color: '#00ff88',
@@ -789,36 +835,39 @@ export class ShooterScene extends FreeForAllGameScene {
         }).setOrigin(0.5).setDepth(1002).setScrollFactor(0);
 
         // Scoreboard header background
-        const headerBg = this.add.rectangle(centerX, centerY - 20, 550, 30, 0x2a2a3e);
+        const headerY = scoreboardTitleY + 40;
+        const tableWidth = Math.min(panelWidth - 50, 550);
+        const headerBg = this.add.rectangle(centerX, headerY, tableWidth, 30, 0x2a2a3e);
         headerBg.setDepth(1002).setScrollFactor(0);
 
-        // Column headers
-        const headerRank = this.add.text(centerX - 240, centerY - 20, 'RANK', {
-            fontSize: '12px',
+        // Column headers - relative to table width
+        const leftEdge = centerX - tableWidth / 2;
+        const headerRank = this.add.text(leftEdge + 20, headerY, 'RANK', {
+            fontSize: '13px',
             color: '#888888',
             fontStyle: 'bold'
         }).setOrigin(0, 0.5).setDepth(1003).setScrollFactor(0);
 
-        const headerPlayer = this.add.text(centerX - 170, centerY - 20, 'PLAYER', {
-            fontSize: '12px',
+        const headerPlayer = this.add.text(leftEdge + 90, headerY, 'PLAYER', {
+            fontSize: '13px',
             color: '#888888',
             fontStyle: 'bold'
         }).setOrigin(0, 0.5).setDepth(1003).setScrollFactor(0);
 
-        const headerScore = this.add.text(centerX + 80, centerY - 20, 'SCORE', {
-            fontSize: '12px',
+        const headerScore = this.add.text(centerX + tableWidth * 0.15, headerY, 'SCORE', {
+            fontSize: '13px',
             color: '#888888',
             fontStyle: 'bold'
         }).setOrigin(0.5, 0.5).setDepth(1003).setScrollFactor(0);
 
-        const headerKD = this.add.text(centerX + 160, centerY - 20, 'K/D', {
-            fontSize: '12px',
+        const headerKD = this.add.text(centerX + tableWidth * 0.28, headerY, 'K/D', {
+            fontSize: '13px',
             color: '#888888',
             fontStyle: 'bold'
         }).setOrigin(0.5, 0.5).setDepth(1003).setScrollFactor(0);
 
-        const headerRatio = this.add.text(centerX + 230, centerY - 20, 'RATIO', {
-            fontSize: '12px',
+        const headerRatio = this.add.text(centerX + tableWidth * 0.40, headerY, 'RATIO', {
+            fontSize: '13px',
             color: '#888888',
             fontStyle: 'bold'
         }).setOrigin(0.5, 0.5).setDepth(1003).setScrollFactor(0);
@@ -826,7 +875,7 @@ export class ShooterScene extends FreeForAllGameScene {
         // ====== PLAYER ENTRIES ======
 
         const leaderboardEntries = [];
-        let yOffset = centerY + 15;
+        let yOffset = headerY + 30;
 
         data.finalScores.slice(0, 8).forEach((playerData, index) => {
             const rank = index + 1;
@@ -837,22 +886,22 @@ export class ShooterScene extends FreeForAllGameScene {
             // Row background (highlight winner and me)
             let rowBg = null;
             if (isWinnerRow) {
-                rowBg = this.add.rectangle(centerX, yOffset, 550, 28, 0xFFD700, 0.15);
+                rowBg = this.add.rectangle(centerX, yOffset, tableWidth, 28, 0xFFD700, 0.15);
                 rowBg.setDepth(1002).setScrollFactor(0);
             } else if (isMe) {
-                rowBg = this.add.rectangle(centerX, yOffset, 550, 28, 0x4444FF, 0.15);
+                rowBg = this.add.rectangle(centerX, yOffset, tableWidth, 28, 0x4444FF, 0.15);
                 rowBg.setDepth(1002).setScrollFactor(0);
             }
 
             // Separator line
-            const separator = this.add.rectangle(centerX, yOffset + 14, 550, 1, 0x333333);
+            const separator = this.add.rectangle(centerX, yOffset + 14, tableWidth, 1, 0x333333);
             separator.setDepth(1002).setScrollFactor(0);
 
             const textColor = isMe ? '#FFD700' : '#FFFFFF';
             const fontStyle = isMe ? 'bold' : 'normal';
 
             // Rank
-            const rankText = this.add.text(centerX - 240, yOffset, medal, {
+            const rankText = this.add.text(leftEdge + 20, yOffset, medal, {
                 fontSize: '16px',
                 color: textColor,
                 fontStyle: fontStyle
@@ -860,14 +909,14 @@ export class ShooterScene extends FreeForAllGameScene {
 
             // Player name
             const nameDisplay = isMe ? `${playerData.name} (You)` : playerData.name;
-            const playerName = this.add.text(centerX - 170, yOffset, nameDisplay.substring(0, 20), {
+            const playerName = this.add.text(leftEdge + 90, yOffset, nameDisplay.substring(0, 20), {
                 fontSize: '14px',
                 color: textColor,
                 fontStyle: fontStyle
             }).setOrigin(0, 0.5).setDepth(1003).setScrollFactor(0);
 
             // Score
-            const scoreText = this.add.text(centerX + 80, yOffset, playerData.score || 0, {
+            const scoreText = this.add.text(centerX + tableWidth * 0.15, yOffset, playerData.score || 0, {
                 fontSize: '16px',
                 color: '#FFD700',
                 fontStyle: 'bold'
@@ -875,8 +924,8 @@ export class ShooterScene extends FreeForAllGameScene {
 
             // K/D
             const kdDisplay = `${playerData.kills || 0}/${playerData.deaths || 0}`;
-            const kdText = this.add.text(centerX + 160, yOffset, kdDisplay, {
-                fontSize: '13px',
+            const kdText = this.add.text(centerX + tableWidth * 0.28, yOffset, kdDisplay, {
+                fontSize: '14px',
                 color: '#00ff88'
             }).setOrigin(0.5, 0.5).setDepth(1003).setScrollFactor(0);
 
@@ -884,7 +933,7 @@ export class ShooterScene extends FreeForAllGameScene {
             const ratio = playerData.deaths > 0
                 ? (playerData.kills / playerData.deaths).toFixed(2)
                 : (playerData.kills || 0);
-            const ratioText = this.add.text(centerX + 230, yOffset, ratio, {
+            const ratioText = this.add.text(centerX + tableWidth * 0.40, yOffset, ratio, {
                 fontSize: '14px',
                 color: '#aa88ff',
                 fontStyle: 'bold'
@@ -905,11 +954,12 @@ export class ShooterScene extends FreeForAllGameScene {
 
         // ====== CLOSE BUTTON ======
 
-        const buttonBg = this.add.rectangle(centerX, centerY + 210, 200, 45, 0x00ff88);
+        const buttonY = centerY + panelHeight / 2 - 40;
+        const buttonBg = this.add.rectangle(centerX, buttonY, 200, 45, 0x00ff88);
         buttonBg.setDepth(1002).setScrollFactor(0);
         buttonBg.setInteractive({ useHandCursor: true });
 
-        const buttonText = this.add.text(centerX, centerY + 210,
+        const buttonText = this.add.text(centerX, buttonY,
             'Close', {
             fontSize: '18px',
             color: '#000000',
@@ -1143,7 +1193,7 @@ export class ShooterScene extends FreeForAllGameScene {
 
         // Update health bar
         const healthPercent = Math.max(0, Math.min(1, myPlayer.health / myPlayer.maxHealth));
-        this.myHealthBar.setDisplaySize(196 * healthPercent, 12);
+        this.myHealthBar.setDisplaySize(206 * healthPercent, 14);
         this.myHealthText.setText(`${Math.round(myPlayer.health)}/${myPlayer.maxHealth}`);
 
         // Health bar color
@@ -1161,11 +1211,14 @@ export class ShooterScene extends FreeForAllGameScene {
         // Show death/spectating message - CHỈ khi game đang playing
         // FIX: Trước đây thiếu check gameState, nên hiện "You died" ngay khi vào phòng
         if (this.gameState === 'playing' && !myPlayer.isAlive) {
+            const centerX = this.canvasWidth / 2;
+            const centerY = this.canvasHeight / 2;
+            
             if (myPlayer.isSpectator) {
                 // Mid-game join - spectating
                 if (!this.deathMessage || this.deathMessage.text !== '👁️ Spectating...') {
                     if (this.deathMessage) this.deathMessage.destroy();
-                    this.deathMessage = this.add.text(400, 300, '👁️ Spectating...', {
+                    this.deathMessage = this.add.text(centerX, centerY, '👁️ Spectating...', {
                         fontSize: '32px',
                         color: '#00ff88',
                         fontStyle: 'bold',
@@ -1173,7 +1226,7 @@ export class ShooterScene extends FreeForAllGameScene {
                         strokeThickness: 4
                     }).setOrigin(0.5).setDepth(1000).setScrollFactor(0);
 
-                    const subText = this.add.text(400, 340, 'You will spawn in the next match', {
+                    const subText = this.add.text(centerX, centerY + 40, 'You will spawn in the next match', {
                         fontSize: '18px',
                         color: '#ffffff'
                     }).setOrigin(0.5).setDepth(1000).setScrollFactor(0);
@@ -1186,7 +1239,7 @@ export class ShooterScene extends FreeForAllGameScene {
                     if (this.deathMessage) this.deathMessage.destroy();
                     if (this.deathMessageSub) this.deathMessageSub.destroy();
 
-                    this.deathMessage = this.add.text(400, 300, '💀 You died!', {
+                    this.deathMessage = this.add.text(centerX, centerY, '💀 You died!', {
                         fontSize: '32px',
                         color: '#ff4444',
                         fontStyle: 'bold',
@@ -1445,6 +1498,9 @@ export class ShooterScene extends FreeForAllGameScene {
      * Cleanup
      */
     shutdown() {
+        // Remove resize listener
+        this.scale.off('resize', this.handleResize, this);
+        
         // Restore system cursor when leaving game
         if (this.input) {
             this.input.setDefaultCursor('default');
